@@ -1,4 +1,4 @@
-enum Environment { development, production, local }
+enum Environment { production, local }
 
 class AppConfig {
   AppConfig({
@@ -26,38 +26,27 @@ class AppConfig {
 
   static void initialize(Environment environment) {
     switch (environment) {
-      case Environment.development:
-        _instance = AppConfig(
-          environment: Environment.development,
-          appName: 'DC OP DEV',
-          baseUrl: 'https://hr-api.dev.mydatacrate.com/api',
-          debugMode: true,
-          bundleId: 'com.mydatacrate.employeepassport.development',
-        );
-        break;
-
       case Environment.production:
         _instance = AppConfig(
           environment: Environment.production,
-          appName: 'Crate-Employee Passport',
-          baseUrl: 'https://hr-api.mydatacrate.com/api',
+          appName: 'Sport Heroes',
+          baseUrl: 'https://sport-heroes-api.mydatacrate.com/api',
           debugMode: false,
-          bundleId: 'com.mydatacrate.employeepassport',
+          bundleId: 'com.sportheroes.app',
         );
         break;
       case Environment.local:
         _instance = AppConfig(
           environment: Environment.local,
-          appName: 'DC OP LOCAL',
-          baseUrl: 'http://localhost:3002/api',
+          appName: 'Sport Heroes Local',
+          baseUrl: 'http://localhost:3000/api',
           debugMode: true,
-          bundleId: 'com.mydatacrate.employeepassport.local',
+          bundleId: 'com.sportheroes.app.local',
         );
         break;
     }
   }
 
   bool get isLocal => environment == Environment.local;
-  bool get isDevelopment => environment == Environment.development;
   bool get isProduction => environment == Environment.production;
 }

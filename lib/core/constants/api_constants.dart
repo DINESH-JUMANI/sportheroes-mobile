@@ -1,34 +1,18 @@
-// lib/core/constants/api_constants.dart
+import 'package:sportheroes_mobile/core/config/app_config.dart';
 
 class ApiConstants {
-  // Microservice Base URLs (environment-aware)
-  static const String baseUrl = 'https://api.sportheroes.com';
+  ApiConstants._();
 
-  // Authentication Endpoints
-  static const String authLoginInit = '/auth/login/init';
-  static const String authSetPassword = '/auth/set-password';
-  static const String authLogin = '/auth/login';
-  static const String authOtpVerify = '/auth/otp/verify';
-  static const String authForgotPassword = '/auth/forgot-password';
-  static const String authVerifyForgotOtp = '/auth/verify-forgot-otp';
-  static const String authResetPassword = '/auth/reset-password';
-  static const String authRefresh = '/auth/refresh';
-  static const String authLogout = '/auth/logout';
-  static const String authOtpResend = '/auth/otp/resend';
-  static const String authMe = '/auth/me';
-  static const String authMicrosoft = '/auth/microsoft/mobile';
-  static const String authMicrosoftCallbackMobile =
-      '/auth/microsoft/callback/mobile';
+  /// Environment-aware base URL (includes `/api` suffix).
+  static String get baseUrl => AppConfig.instance.baseUrl;
 
-  // Language Endpoints
-  static const String languages = '/languages';
-  static String languageById(String value) => '/languages/$value';
+  // ── Auth (Firebase idToken exchange + profile) ──────────────────────────
+  static const String authLogin = '/v1/auth/login';
+  static const String authMe = '/v1/auth/me';
+  static const String authProfile = '/v1/auth/profile';
+  static const String authLogout = '/v1/auth/logout';
 
-  // Country Endpoints
-  static const String countries = '/countries';
-  static String countryById(String value) => '/countries/$value';
-
-  // HTTP Status Codes
+  // ── HTTP Status Codes ───────────────────────────────────────────────────
   static const int statusOk = 200;
   static const int statusCreated = 201;
   static const int statusBadRequest = 400;

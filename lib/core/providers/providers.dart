@@ -16,8 +16,8 @@ final localStorageServiceProvider = Provider<LocalStorageService>((ref) {
 });
 
 // DioClient Providers for different microservices
-final userDioClientProvider = Provider<DioClient>((ref) {
-  return DioClient.userInstance;
+final dioClientProvider = Provider<DioClient>((ref) {
+  return DioClient.instance;
 });
 
 final connectivityServiceProvider = Provider<ConnectivityService>((ref) {

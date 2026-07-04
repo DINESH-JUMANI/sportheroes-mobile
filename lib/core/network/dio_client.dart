@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:sportheroes_mobile/core/constants/api_constants.dart';
+import 'package:sportheroes_mobile/core/services/local_storage_service.dart';
 import 'package:sportheroes_mobile/utils/app_logger.dart';
 
 class DioClient {
@@ -22,21 +22,38 @@ class DioClient {
 
   late Dio _dio;
 
-  // Singleton instances for each microservice
   static DioClient? _instance;
 
-  // User Service DioClient instance
-  static DioClient get userInstance {
+  static DioClient get instance {
     _instance ??= DioClient._internal(ApiConstants.baseUrl);
     return _instance!;
+  }
+
+  /// Call after [AppConfig.initialize] if the environment may change.
+  static void reset() {
+    _instance = null;
   }
 
   Dio get dio => _dio;
 
   void _setupInterceptors() {
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          try {
+            final token = LocalStorageService.instance.userToken;
+            if (token != null && token.isNotEmpty) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          } catch (_) {
+            // LocalStorage may not be ready during early init.
+          }
+          handler.next(options);
+        },
+      ),
+    );
+
     if (kDebugMode) {
-      // Log a short summary for multipart requests and byte responses
-      // (avoids huge image/file data flooding the console)
       _dio.interceptors.add(
         InterceptorsWrapper(
           onRequest: (options, handler) {
@@ -73,9 +90,7 @@ class DioClient {
           requestHeader: true,
           requestBody: true,
           filter: (options, args) {
-            // Skip logging for multipart requests (signature file uploads)
             if (!args.isResponse && options.data is FormData) return false;
-            // Skip logging for binary responses (image/file downloads)
             if (args.isResponse &&
                 (options.responseType == ResponseType.bytes ||
                     args.data is List<int>)) {

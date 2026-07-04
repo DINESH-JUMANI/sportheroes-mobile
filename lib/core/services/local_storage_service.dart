@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LocalStorageService {
@@ -22,7 +24,7 @@ class LocalStorageService {
   static const String _keyIsOnboarded = 'isOnboarded';
   static const String _keyIsLoggedIn = 'isLoggedIn';
   static const String _keyUserToken = 'userToken';
-  static const String _keyUserEmail = 'userEmail';
+  static const String _keyUserJson = 'userJson';
 
   bool get isOnboarded => _preferences?.getBool(_keyIsOnboarded) ?? false;
 
@@ -30,7 +32,9 @@ class LocalStorageService {
     return await _preferences?.setBool(_keyIsOnboarded, value) ?? false;
   }
 
-  bool get isLoggedIn => _preferences?.getBool(_keyIsLoggedIn) ?? false;
+  bool get isLoggedIn =>
+      (_preferences?.getBool(_keyIsLoggedIn) ?? false) &&
+      (userToken?.isNotEmpty ?? false);
 
   Future<bool> setLoggedIn(bool value) async {
     return await _preferences?.setBool(_keyIsLoggedIn, value) ?? false;
@@ -46,10 +50,38 @@ class LocalStorageService {
     return await _preferences?.remove(_keyUserToken) ?? false;
   }
 
-  String? get userEmail => _preferences?.getString(_keyUserEmail);
+  Map<String, dynamic>? get userJson {
+    final raw = _preferences?.getString(_keyUserJson);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
 
-  Future<bool> setUserEmail(String email) async {
-    return await _preferences?.setString(_keyUserEmail, email) ?? false;
+  Future<bool> setUserJson(Map<String, dynamic> user) async {
+    return await _preferences?.setString(_keyUserJson, jsonEncode(user)) ??
+        false;
+  }
+
+  Future<bool> removeUserJson() async {
+    return await _preferences?.remove(_keyUserJson) ?? false;
+  }
+
+  Future<void> saveSession({
+    required String accessToken,
+    required Map<String, dynamic> user,
+  }) async {
+    await setUserToken(accessToken);
+    await setUserJson(user);
+    await setLoggedIn(true);
+  }
+
+  Future<void> clearSession() async {
+    await removeUserToken();
+    await removeUserJson();
+    await setLoggedIn(false);
   }
 
   Future<bool> clearAll() async {
