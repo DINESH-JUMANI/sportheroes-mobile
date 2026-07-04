@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportheroes_mobile/core/constants/app_colors.dart';
 import 'package:sportheroes_mobile/core/providers/providers.dart';
 import 'package:sportheroes_mobile/core/services/device_location_service.dart';
+import 'package:sportheroes_mobile/features/auth/providers/auth_provider.dart';
 import 'package:sportheroes_mobile/routes/app_routes.dart';
 import 'package:sportheroes_mobile/utils/app_logger.dart';
 
@@ -24,45 +26,40 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Future<void> _initializeApp() async {
     AppLogger.info('Splash screen initializing...');
 
-    // Request location permission (not mandatory - if denied, we skip)
     await _requestLocationPermission();
-
-    await Future.delayed(const Duration(seconds: 3));
+    await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
 
     final storage = ref.read(localStorageServiceProvider);
     final isOnboarded = storage.isOnboarded;
-    final isLoggedIn = storage.isLoggedIn;
+    final auth = ref.read(authProvider);
 
-    AppLogger.debug('Splash checks - isOnboarded: $isOnboarded, ');
+    AppLogger.debug(
+      'Splash checks - isOnboarded: $isOnboarded, step: ${auth.step}',
+    );
 
     if (!isOnboarded) {
-      await storage.setOnboarded(true);
       AppLogger.info('First-time user, navigating to onboarding');
-      AppLogger.navigation('Splash Screen', 'Onboarding Screen');
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, AppRoutes.onboarding);
-      }
+      Navigator.pushReplacementNamed(context, AppRoutes.onboarding);
       return;
     }
 
-    if (!isLoggedIn) {
-      AppLogger.info('User has completed onboarding, navigating to login');
-      AppLogger.navigation('Splash Screen', 'Login Screen');
-      Navigator.pushReplacementNamed(context, AppRoutes.login);
+    if (auth.step == AuthStep.profile) {
+      Navigator.pushReplacementNamed(context, AppRoutes.completeProfile);
       return;
     }
 
-    AppLogger.info('Session integrity validated, navigating to Dashboard');
-    AppLogger.navigation('Splash Screen', 'Dashboard Screen');
-    if (mounted) {
+    if (auth.step == AuthStep.authenticated && storage.isLoggedIn) {
+      AppLogger.info('Session found, navigating to Home');
       Navigator.pushReplacementNamed(context, AppRoutes.home);
+      return;
     }
+
+    AppLogger.info('Navigating to login');
+    Navigator.pushReplacementNamed(context, AppRoutes.login);
   }
 
-  /// Requests location permission at app startup. Not mandatory —
-  /// if the user denies, we simply skip GPS collection later.
   Future<void> _requestLocationPermission() async {
     try {
       final service = DeviceLocationService.instance;
@@ -78,22 +75,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: const Color(0xFF2D31A6),
-        body: SizedBox.expand(
-          child: Stack(
-            children: [
-              Container(
-                alignment: Alignment.center,
-                height: screenHeight * .60,
-                width: screenWidth,
-                child: const Center(child: Text('Sport Heroes')),
+    return const Scaffold(
+      backgroundColor: AppColors.primary800,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.sports_tennis, size: 64, color: AppColors.white),
+            SizedBox(height: 16),
+            Text(
+              'SportHeroes',
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
