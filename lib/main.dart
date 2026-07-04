@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,10 +11,13 @@ import 'package:sportheroes_mobile/core/services/device_location_service.dart';
 import 'package:sportheroes_mobile/core/services/local_storage_service.dart';
 import 'package:sportheroes_mobile/utils/app_logger.dart';
 
-Future<void> main({Environment env = Environment.production}) async {
-  WidgetsFlutterBinding.ensureInitialized();
+/// Default entrypoint (`flutter run`) — production API.
+/// Prefer `lib/main_local.dart` or `lib/main_production.dart` for an explicit env.
+Future<void> main() => startApp(env: Environment.production);
 
-  // --- Phase 1: Critical services (before runApp) ---
+/// Shared app bootstrap used by all entrypoints.
+Future<void> startApp({required Environment env}) async {
+  WidgetsFlutterBinding.ensureInitialized();
 
   AppConfig.initialize(env);
 
@@ -21,7 +25,7 @@ Future<void> main({Environment env = Environment.production}) async {
     debugPrint(
       'ENVIRONMENT: ${AppConfig.instance.environment.name.toUpperCase()}',
     );
-    debugPrint('HR API: ${AppConfig.instance.baseUrl}');
+    debugPrint('API: ${AppConfig.instance.baseUrl}');
     return true;
   }());
 
@@ -34,8 +38,10 @@ Future<void> main({Environment env = Environment.production}) async {
   LoggerUtils.initialize();
   LoggerUtils.logAppStart();
 
-  // LocalStorage is critical — app will crash if it's not ready
   await LocalStorageService.init();
+
+  // Native config from google-services.json / GoogleService-Info.plist.
+  await Firebase.initializeApp();
 
   runApp(const ProviderScope(child: MyApp()));
   _initNonCriticalServices();
