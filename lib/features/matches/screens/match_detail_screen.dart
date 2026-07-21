@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportheroes_mobile/core/constants/app_colors.dart';
@@ -23,28 +21,19 @@ class MatchDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
-  Timer? _pollTimer;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(matchesProvider.notifier).loadMatch(widget.matchId);
       ref.read(matchesProvider.notifier).loadTimeline(widget.matchId);
-      _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-        final match = ref.read(matchesProvider).currentMatch;
-        if (match != null && match.isLive) {
-          ref.read(matchesProvider.notifier).refreshMatch(widget.matchId);
-          ref.read(matchesProvider.notifier).loadTimeline(widget.matchId);
-        }
-      });
     });
   }
 
-  @override
-  void dispose() {
-    _pollTimer?.cancel();
-    super.dispose();
+  Future<void> _refreshAll() async {
+    await ref.read(matchesProvider.notifier).loadMatch(widget.matchId);
+    if (!mounted) return;
+    await ref.read(matchesProvider.notifier).loadTimeline(widget.matchId);
   }
 
   Future<void> _run(Future<bool> Function() action) async {
@@ -194,6 +183,20 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
     }
   }
 
+  String? _timelineScorerId(List<MatchTimelinePoint> timeline) {
+    final active = timeline
+        .where(
+          (p) =>
+              !p.isUndone &&
+              p.recordedBy != null &&
+              p.recordedBy!.trim().isNotEmpty,
+        )
+        .toList();
+    if (active.isEmpty) return null;
+    active.sort((a, b) => a.pointNumber.compareTo(b.pointNumber));
+    return active.first.recordedBy;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(matchesProvider);
@@ -203,10 +206,33 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
     final busy = state.actionState.isLoading;
     final timeline = state.timelineState.dataOrNull ?? const [];
     final timelineLoading = state.timelineState.isLoading;
+    final userId = ref.watch(authProvider).user?.id;
+    final timelineScorerId = _timelineScorerId(timeline);
+    final canManage =
+        match?.canManageScoring(userId, timelineScorerId: timelineScorerId) ??
+        false;
+    final isSpectator = match != null && match.isLive && !canManage;
 
     return Scaffold(
       backgroundColor: AppColors.grey50,
-      appBar: AppBar(title: const Text('Match')),
+      appBar: AppBar(
+        title: const Text('Match'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh score',
+            onPressed: busy
+                ? null
+                : () async {
+                    await AppLoader.during(
+                      context,
+                      _refreshAll,
+                      message: 'Refreshing…',
+                    );
+                  },
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
       body: ApiStateView(
         isLoading: state.detailState.isLoading && match == null,
         error: state.detailState.errorOrNull,
@@ -289,19 +315,42 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                       ),
                     ),
                   ),
+                  if (isSpectator) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.primary100),
+                      ),
+                      child: const Text(
+                        'View only — only the person who started this match can score. Pull refresh (top right) for live updates.',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   if (match.status == 'scheduled')
                     ElevatedButton(
-                      onPressed: busy
+                      onPressed: busy || userId == null || userId.isEmpty
                           ? null
                           : () => _run(
-                              () => ref
-                                  .read(matchesProvider.notifier)
-                                  .start(widget.matchId),
+                              () => ref.read(matchesProvider.notifier).start(
+                                    widget.matchId,
+                                    startedByUserId: userId,
+                                  ),
                             ),
                       child: const Text('Start Match'),
                     ),
-                  if (match.status == 'ongoing') ...[
+                  if (canManage && match.status == 'ongoing') ...[
                     Row(
                       children: [
                         Expanded(
@@ -388,7 +437,7 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                       ],
                     ),
                   ],
-                  if (match.status == 'paused') ...[
+                  if (canManage && match.status == 'paused') ...[
                     ElevatedButton(
                       onPressed: busy
                           ? null
@@ -469,9 +518,7 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                         IconButton(
                           tooltip: 'Refresh',
                           icon: const Icon(Icons.refresh_rounded, size: 20),
-                          onPressed: () => ref
-                              .read(matchesProvider.notifier)
-                              .loadTimeline(widget.matchId),
+                          onPressed: _refreshAll,
                         ),
                     ],
                   ),
@@ -521,17 +568,17 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                         child: Row(
                           children: [
                             CircleAvatar(
-                              radius: 18,
+                              radius: 16,
                               backgroundColor: undone
-                                  ? AppColors.grey100
-                                  : AppColors.primary50,
+                                  ? AppColors.grey200
+                                  : AppColors.primary100,
                               child: Text(
                                 '${p.pointNumber}',
                                 style: TextStyle(
-                                  fontWeight: FontWeight.w800,
                                   fontSize: 12,
+                                  fontWeight: FontWeight.w800,
                                   color: undone
-                                      ? AppColors.grey500
+                                      ? AppColors.textSecondary
                                       : AppColors.primary,
                                   decoration: undone
                                       ? TextDecoration.lineThrough
@@ -546,37 +593,42 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                                 children: [
                                   Text(
                                     undone
-                                        ? 'Point undone · ${match.sideLabel(p.scoringSide)}'
+                                        ? 'Point undone'
                                         : 'Point to ${match.sideLabel(p.scoringSide)}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w700,
-                                      color: undone
-                                          ? AppColors.textTertiary
-                                          : AppColors.textPrimary,
                                       decoration: undone
                                           ? TextDecoration.lineThrough
                                           : null,
+                                      color: undone
+                                          ? AppColors.textSecondary
+                                          : null,
                                     ),
                                   ),
-                                  Text(
-                                    'Score ${p.sideAScoreAfter}-${p.sideBScoreAfter}'
-                                    '${p.recordedAt != null ? ' · ${DateFormatter.formatToDateTimeSeconds(p.recordedAt!)}' : ''}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary,
+                                  if (p.recordedAt != null)
+                                    Text(
+                                      DateFormatter.formatToDateTimeSeconds(
+                                        p.recordedAt!,
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
-                            Icon(
-                              undone
-                                  ? Icons.undo_rounded
-                                  : Icons.sports_score_rounded,
-                              color: undone
-                                  ? AppColors.grey400
-                                  : AppColors.primary,
-                              size: 20,
+                            Text(
+                              '${p.sideAScoreAfter}-${p.sideBScoreAfter}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: undone
+                                    ? AppColors.textSecondary
+                                    : AppColors.textPrimary,
+                                decoration: undone
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                              ),
                             ),
                           ],
                         ),

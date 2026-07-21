@@ -184,6 +184,7 @@ class MatchModel {
     this.finishedAt,
     this.winnerSide,
     this.createdBy,
+    this.startedBy,
     this.participants = const [],
     this.sets = const [],
     this.sport,
@@ -216,6 +217,7 @@ class MatchModel {
       status: json['status']?.toString() ?? 'scheduled',
       winnerSide: json['winnerSide'] as String?,
       createdBy: json['createdBy']?.toString(),
+      startedBy: json['startedBy']?.toString() ?? json['started_by']?.toString(),
       participants: json['participants'] is List
           ? (json['participants'] as List)
               .map(
@@ -259,6 +261,8 @@ class MatchModel {
   final String status;
   final String? winnerSide;
   final String? createdBy;
+  /// User who pressed Start Match and may score / control the match.
+  final String? startedBy;
   final List<MatchParticipant> participants;
   final List<MatchSet> sets;
   final SportModel? sport;
@@ -269,6 +273,24 @@ class MatchModel {
   bool get isCompleted => status == 'completed';
   bool get isTeamMatch =>
       matchType == 'team' || participants.any((p) => p.isTeamSide);
+
+  /// Resolves who may score: API/local [startedBy], then first timeline scorer.
+  String? controllerUserId({String? timelineScorerId}) {
+    final fromApi = startedBy?.trim();
+    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
+    final fromTimeline = timelineScorerId?.trim();
+    if (fromTimeline != null && fromTimeline.isNotEmpty) return fromTimeline;
+    return null;
+  }
+
+  /// Only the match controller can score / pause / end while live.
+  bool canManageScoring(String? userId, {String? timelineScorerId}) {
+    if (userId == null || userId.isEmpty) return false;
+    if (!isLive) return false;
+    final controller = controllerUserId(timelineScorerId: timelineScorerId);
+    if (controller == null) return false;
+    return controller == userId;
+  }
 
   MatchSet? get currentSet {
     if (sets.isEmpty) return null;
@@ -349,6 +371,9 @@ class MatchModel {
 
   MatchModel copyWith({
     List<MatchParticipant>? participants,
+    String? startedBy,
+    String? status,
+    String? winnerSide,
   }) {
     return MatchModel(
       id: id,
@@ -363,9 +388,10 @@ class MatchModel {
       scheduledAt: scheduledAt,
       startedAt: startedAt,
       finishedAt: finishedAt,
-      status: status,
-      winnerSide: winnerSide,
+      status: status ?? this.status,
+      winnerSide: winnerSide ?? this.winnerSide,
       createdBy: createdBy,
+      startedBy: startedBy ?? this.startedBy,
       participants: participants ?? this.participants,
       sets: sets,
       sport: sport,
