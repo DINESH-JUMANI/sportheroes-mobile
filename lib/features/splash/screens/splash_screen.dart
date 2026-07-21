@@ -48,8 +48,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     if (storage.isLoggedIn) {
       AppLogger.info('Validating JWT via player-profiles/me…');
-      final valid =
-          await ref.read(authProvider.notifier).validateSession();
+      final valid = await ref.read(authProvider.notifier).validateSession();
       if (!mounted) return;
 
       if (!valid) {
