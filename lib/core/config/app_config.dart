@@ -30,7 +30,7 @@ class AppConfig {
         _instance = AppConfig(
           environment: Environment.production,
           appName: 'Sport Heroes',
-          baseUrl: 'https://sport-heroes-api.mydatacrate.com/api',
+          baseUrl: 'https://sportheroes-backend.vercel.app/api',
           debugMode: false,
           bundleId: 'com.sportheroes.app',
         );

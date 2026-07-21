@@ -124,7 +124,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     arguments: m.id,
                   ),
                   child: MatchPreviewCard(
-                    title: '${m.sideLabel('A')} vs ${m.sideLabel('B')}',
+                    title: m.matchupLabel,
                     subtitle:
                         '${m.sport?.name ?? m.matchType} · Set ${m.currentSet?.setNumber ?? 1}',
                     trailing:
@@ -154,7 +154,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     arguments: m.id,
                   ),
                   child: MatchPreviewCard(
-                    title: '${m.sideLabel('A')} vs ${m.sideLabel('B')}',
+                    title: m.matchupLabel,
                     subtitle:
                         '${m.sport?.name ?? m.matchType} · ${m.scheduledAt?.split('T').first ?? m.status}',
                     trailing: m.scoreSummary,

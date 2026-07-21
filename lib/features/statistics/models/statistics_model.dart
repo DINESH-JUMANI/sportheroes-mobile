@@ -16,6 +16,7 @@ class PlayerStatistics {
     this.currentRankingPoints = 0,
     this.updatedAt,
     this.player,
+    this.sportName,
   });
 
   factory PlayerStatistics.fromJson(Map<String, dynamic> json) {
@@ -39,6 +40,9 @@ class PlayerStatistics {
               Map<String, dynamic>.from(json['player'] as Map),
             )
           : null,
+      sportName: json['sport'] is Map
+          ? (json['sport'] as Map)['name']?.toString()
+          : json['sportName'] as String?,
     );
   }
 
@@ -56,6 +60,7 @@ class PlayerStatistics {
   final int currentRankingPoints;
   final String? updatedAt;
   final UserSummary? player;
+  final String? sportName;
 }
 
 class TeamStatistics {

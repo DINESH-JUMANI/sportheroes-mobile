@@ -4,6 +4,7 @@ import 'package:sportheroes_mobile/core/constants/app_colors.dart';
 import 'package:sportheroes_mobile/core/widgets/app_logo_loader.dart';
 import 'package:sportheroes_mobile/features/auth/providers/auth_provider.dart';
 import 'package:sportheroes_mobile/features/profile/widgets/profile_stat_tile.dart';
+import 'package:sportheroes_mobile/features/sports/providers/sports_provider.dart';
 import 'package:sportheroes_mobile/features/statistics/providers/statistics_provider.dart';
 
 class MyStatsScreen extends ConsumerStatefulWidget {
@@ -17,17 +18,30 @@ class _MyStatsScreenState extends ConsumerState<MyStatsScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final user = ref.read(authProvider).user;
+      await ref.read(sportsProvider.notifier).loadSports();
       if (user != null) {
-        ref.read(statisticsProvider.notifier).loadMyStats(user.id);
+        await ref.read(statisticsProvider.notifier).loadMyStats(user.id);
       }
     });
+  }
+
+  String _sportLabel(String sportId, String? sportName) {
+    if (sportName != null && sportName.trim().isNotEmpty) {
+      return sportName.trim();
+    }
+    final sports = ref.read(sportsProvider).sports;
+    for (final s in sports) {
+      if (s.id == sportId) return s.name;
+    }
+    return 'Sport';
   }
 
   @override
   Widget build(BuildContext context) {
     final statsState = ref.watch(statisticsProvider);
+    final sports = ref.watch(sportsProvider).sports;
     final myStats = statsState.myStats;
 
     final totals = myStats.fold<({int played, int wins, int losses})>(
@@ -47,6 +61,7 @@ class _MyStatsScreenState extends ConsumerState<MyStatsScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           final user = ref.read(authProvider).user;
+          await ref.read(sportsProvider.notifier).loadSports();
           if (user != null) {
             await ref.read(statisticsProvider.notifier).loadMyStats(user.id);
           }
@@ -80,13 +95,17 @@ class _MyStatsScreenState extends ConsumerState<MyStatsScreen> {
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                 ),
                 const SizedBox(height: 8),
-                  ...myStats.map(
-                  (s) => ProfileStatTile(
-                    label: s.sportId.length > 8
-                        ? 'Sport ${s.sportId.substring(0, 8)}…'
-                        : 'Sport',
-                    value: '${s.matchesWon}W / ${s.matchesPlayed}P',
-                  ),
+                ...myStats.map(
+                  (s) {
+                    final nameFromList = sports
+                        .where((sp) => sp.id == s.sportId)
+                        .map((sp) => sp.name)
+                        .firstOrNull;
+                    return ProfileStatTile(
+                      label: _sportLabel(s.sportId, s.sportName ?? nameFromList),
+                      value: '${s.matchesWon}W / ${s.matchesPlayed}P',
+                    );
+                  },
                 ),
               ] else
                 const Padding(

@@ -94,10 +94,13 @@ class DateFormatter {
     }
   }
 
-  /// Formats a DateTime object to time format (hh:mm a)
-  ///
-  /// Example: DateTime(2025, 12, 1, 10, 30) -> "10:30 AM"
-  static String formatDateTimeToTime(DateTime dateTime) {
-    return DateFormat('hh:mm a').format(dateTime);
+  /// Formats an ISO date to `dd-MM-yy HH:mm:ss` (local time).
+  static String formatToDateTimeSeconds(String isoDate) {
+    try {
+      final dateTime = DateTime.parse(isoDate).toLocal();
+      return DateFormat('dd-MM-yy HH:mm:ss').format(dateTime);
+    } catch (e) {
+      return isoDate;
+    }
   }
 }

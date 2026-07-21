@@ -6,6 +6,7 @@ import 'package:sportheroes_mobile/features/auth/providers/auth_provider.dart';
 import 'package:sportheroes_mobile/features/matches/providers/matches_provider.dart';
 import 'package:sportheroes_mobile/features/matches/widgets/match_list_tile.dart';
 import 'package:sportheroes_mobile/routes/app_routes.dart';
+import 'package:sportheroes_mobile/utils/date_formatter.dart';
 
 class MatchesScreen extends ConsumerStatefulWidget {
   const MatchesScreen({super.key});
@@ -22,40 +23,55 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    _tabs.addListener(_onTabChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadTab(0));
   }
 
   @override
   void dispose() {
+    _tabs.removeListener(_onTabChanged);
     _tabs.dispose();
     super.dispose();
   }
 
-  Future<void> _refresh() async {
+  void _onTabChanged() {
+    if (_tabs.indexIsChanging) return;
+    _loadTab(_tabs.index);
+  }
+
+  Future<void> _loadTab(int index) async {
     final phone = ref.read(authProvider).user?.phoneNumber;
-    await Future.wait([
-      ref.read(matchesProvider.notifier).loadRecentAndScheduled(),
-      ref.read(matchesProvider.notifier).loadLiveMatches(),
-      if (phone != null && phone.isNotEmpty)
-        ref.read(matchesProvider.notifier).loadMyMatches(phone),
-    ]);
+    final notifier = ref.read(matchesProvider.notifier);
+    if (index == 0) {
+      await notifier.loadRecentAndScheduled();
+    } else if (index == 1) {
+      await notifier.loadLiveMatches();
+    } else if (phone != null && phone.isNotEmpty) {
+      await notifier.loadMyMatches(phone);
+    }
   }
 
   Future<void> _openCreate() async {
     await Navigator.pushNamed(context, AppRoutes.createMatch);
-    if (mounted) await _refresh();
+    if (mounted) await _loadTab(_tabs.index);
+  }
+
+  String _dateLine(String? scheduledAt, String formatLabel, String venue) {
+    final parts = <String>[formatLabel];
+    if (venue.isNotEmpty) parts.add(venue);
+    if (scheduledAt != null && scheduledAt.isNotEmpty) {
+      parts.add(DateFormatter.formatToDateTimeSeconds(scheduledAt));
+    }
+    return parts.join(' · ');
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(matchesProvider);
     final phone = ref.watch(authProvider).user?.phoneNumber;
-    // When "My" is selected we reuse listState via loadMyMatches.
-    // For All we use loadRecentAndScheduled into listState.
-    // Live uses liveState.
-    // Switching tabs should reload appropriate data.
+
     return Scaffold(
-      backgroundColor: AppColors.grey50,
+      backgroundColor: AppColors.secondary,
       appBar: AppBar(
         title: const Text('Matches'),
         bottom: TabBar(
@@ -64,19 +80,10 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
           unselectedLabelColor: AppColors.white.withValues(alpha: 0.7),
           indicatorColor: AppColors.white,
           indicatorWeight: 3,
-          onTap: (i) async {
-            if (i == 0) {
-              await ref.read(matchesProvider.notifier).loadRecentAndScheduled();
-            } else if (i == 1) {
-              await ref.read(matchesProvider.notifier).loadLiveMatches();
-            } else if (phone != null && phone.isNotEmpty) {
-              await ref.read(matchesProvider.notifier).loadMyMatches(phone);
-            }
-          },
           tabs: const [
             Tab(text: 'All'),
             Tab(text: 'Live'),
-            Tab(text: 'My'),
+            Tab(text: 'My Matches'),
           ],
         ),
       ),
@@ -93,7 +100,8 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
             onRefresh: () =>
                 ref.read(matchesProvider.notifier).loadRecentAndScheduled(),
             child: ApiStateView(
-              isLoading: state.listState.isLoading,
+              isLoading: state.listState.isLoading || state.listState.isInitial,
+              loadingMessage: 'Loading matches…',
               error: state.listState.errorOrNull,
               onRetry: () =>
                   ref.read(matchesProvider.notifier).loadRecentAndScheduled(),
@@ -107,14 +115,14 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
                   final m = state.matches[i];
                   return MatchListTile(
                     sport: m.sport?.name ?? m.matchType,
-                    opponent: '${m.sideLabel('A')} vs ${m.sideLabel('B')}',
+                    opponent: m.matchupLabel,
                     score: m.scoreSummary,
                     result: m.resultLabel,
-                    date: [
+                    date: _dateLine(
+                      m.scheduledAt,
                       m.formatLabel,
-                      if (m.venueDisplay.isNotEmpty) m.venueDisplay,
-                      m.scheduledAt?.split('T').first,
-                    ].whereType<String>().where((e) => e.isNotEmpty).join(' · '),
+                      m.venueDisplay,
+                    ),
                     isLive: m.isLive,
                     onTap: () async {
                       await Navigator.pushNamed(
@@ -122,7 +130,7 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
                         AppRoutes.matchDetail,
                         arguments: m.id,
                       );
-                      if (mounted) await _refresh();
+                      if (mounted) await _loadTab(0);
                     },
                   );
                 },
@@ -133,12 +141,12 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
             onRefresh: () =>
                 ref.read(matchesProvider.notifier).loadLiveMatches(),
             child: ApiStateView(
-              isLoading: state.liveState.isLoading,
+              isLoading: state.liveState.isLoading || state.liveState.isInitial,
+              loadingMessage: 'Loading live matches…',
               error: state.liveState.errorOrNull,
               onRetry: () =>
                   ref.read(matchesProvider.notifier).loadLiveMatches(),
-              isEmpty:
-                  state.liveMatches.isEmpty && state.liveState.isSuccess,
+              isEmpty: state.liveMatches.isEmpty && state.liveState.isSuccess,
               emptyMessage: 'No live matches right now.',
               child: ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -149,7 +157,7 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
                   final current = m.currentSet;
                   return MatchListTile(
                     sport: m.sport?.name ?? m.matchType,
-                    opponent: '${m.sideLabel('A')} vs ${m.sideLabel('B')}',
+                    opponent: m.matchupLabel,
                     score: current == null
                         ? m.scoreSummary
                         : '${current.sideAScore}-${current.sideBScore}',
@@ -166,7 +174,7 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
                         AppRoutes.matchDetail,
                         arguments: m.id,
                       );
-                      if (mounted) await _refresh();
+                      if (mounted) await _loadTab(1);
                     },
                   );
                 },
@@ -192,34 +200,30 @@ class _MatchesScreenState extends ConsumerState<MatchesScreen>
                     ],
                   )
                 : ApiStateView(
-                    isLoading: state.listState.isLoading,
-                    error: state.listState.errorOrNull,
-                    onRetry: () => ref
-                        .read(matchesProvider.notifier)
-                        .loadMyMatches(phone),
-                    isEmpty:
-                        state.matches.isEmpty && state.listState.isSuccess,
+                    isLoading:
+                        state.myState.isLoading || state.myState.isInitial,
+                    loadingMessage: 'Loading your matches…',
+                    error: state.myState.errorOrNull,
+                    onRetry: () =>
+                        ref.read(matchesProvider.notifier).loadMyMatches(phone),
+                    isEmpty: state.myMatches.isEmpty && state.myState.isSuccess,
                     emptyMessage: 'You have not played any matches yet.',
                     child: ListView.builder(
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                      itemCount: state.matches.length,
+                      itemCount: state.myMatches.length,
                       itemBuilder: (context, i) {
-                        final m = state.matches[i];
+                        final m = state.myMatches[i];
                         return MatchListTile(
                           sport: m.sport?.name ?? m.matchType,
-                          opponent:
-                              '${m.sideLabel('A')} vs ${m.sideLabel('B')}',
+                          opponent: m.matchupLabel,
                           score: m.scoreSummary,
                           result: m.resultLabel,
-                          date: [
+                          date: _dateLine(
+                            m.scheduledAt,
                             m.formatLabel,
-                            if (m.venueDisplay.isNotEmpty) m.venueDisplay,
-                            m.scheduledAt?.split('T').first,
-                          ]
-                              .whereType<String>()
-                              .where((e) => e.isNotEmpty)
-                              .join(' · '),
+                            m.venueDisplay,
+                          ),
                           isLive: m.isLive,
                           onTap: () async {
                             await Navigator.pushNamed(

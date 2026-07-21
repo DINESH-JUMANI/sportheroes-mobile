@@ -39,6 +39,18 @@ class AuthService {
     }
   }
 
+  /// Returns `false` when the server rejects the JWT (401/403).
+  Future<bool> validateAccessToken() async {
+    try {
+      await _dio.get(ApiConstants.playerProfilesMe);
+      return true;
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 401 || code == 403) return false;
+      rethrow;
+    }
+  }
+
   Future<ApiResult<UserModel>> updateProfile(UpdateProfileRequest request) async {
     try {
       final response = await _dio.patch(

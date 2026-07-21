@@ -269,6 +269,30 @@ class AuthNotifier extends Notifier<AuthSessionState> {
     }
   }
 
+  /// Hits `/v1/player-profiles/me` to verify the JWT.
+  /// Returns `false` and clears the session when the token is invalid/expired.
+  Future<bool> validateSession() async {
+    final storage = ref.read(localStorageServiceProvider);
+    if (!storage.isLoggedIn) return false;
+
+    try {
+      final valid = await _auth.validateAccessToken();
+      if (!valid) {
+        await logout();
+        return false;
+      }
+      try {
+        await refreshMe();
+      } catch (_) {
+        // Profiles ok but /me failed — still treat as signed in.
+      }
+      return true;
+    } catch (_) {
+      // Network / unexpected errors: keep local session.
+      return true;
+    }
+  }
+
   Future<void> logout() async {
     state = state.copyWith(logoutState: const ApiLoading<String>());
     String message = 'Logged out';

@@ -81,8 +81,8 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsTile(
             icon: Icons.person_outline_rounded,
             title: 'Profile',
-            subtitle: 'View and edit your profile',
-            onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+            subtitle: 'Edit your profile details',
+            onTap: () => Navigator.pushNamed(context, AppRoutes.editProfile),
           ),
           _SettingsTile(
             icon: Icons.bar_chart_rounded,

@@ -11,6 +11,7 @@ import 'package:sportheroes_mobile/features/matches/models/match_model.dart';
 import 'package:sportheroes_mobile/features/matches/providers/matches_provider.dart';
 import 'package:sportheroes_mobile/features/statistics/providers/statistics_provider.dart';
 import 'package:sportheroes_mobile/utils/app_snackbar.dart';
+import 'package:sportheroes_mobile/utils/date_formatter.dart';
 
 class MatchDetailScreen extends ConsumerStatefulWidget {
   const MatchDetailScreen({super.key, required this.matchId});
@@ -52,6 +53,8 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
     if (ok) {
       final msg = ref.read(matchesProvider).actionState.dataOrNull ?? 'Updated';
       AppSnackbar.success(context, msg);
+      // Always re-fetch match so current set scores stay in sync after navigation.
+      await ref.read(matchesProvider.notifier).loadMatch(widget.matchId);
       ref.read(matchesProvider.notifier).loadTimeline(widget.matchId);
     } else {
       final err = ref.read(matchesProvider).actionState.errorOrNull;
@@ -78,11 +81,11 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                 ),
               ),
               ListTile(
-                title: Text('Side A · ${match.sideLabel('A')}'),
+                title: Text(match.sideLabel('A')),
                 onTap: () => Navigator.pop(ctx, 'A'),
               ),
               ListTile(
-                title: Text('Side B · ${match.sideLabel('B')}'),
+                title: Text(match.sideLabel('B')),
                 onTap: () => Navigator.pop(ctx, 'B'),
               ),
               const SizedBox(height: 8),
@@ -96,16 +99,18 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
     if (!mounted) return;
     final ok = await AppLoader.during(
       context,
-      () => ref.read(matchesProvider.notifier).finishSet(
-            widget.matchId,
-            winnerSide: winnerSide,
-          ),
+      () => ref
+          .read(matchesProvider.notifier)
+          .finishSet(widget.matchId, winnerSide: winnerSide),
       message: 'Finishing set…',
     );
     if (!mounted) return;
     if (ok) {
+      await ref.read(matchesProvider.notifier).loadMatch(widget.matchId);
+      if (!mounted) return;
       final updated = ref.read(matchesProvider).currentMatch;
-      final msg = ref.read(matchesProvider).actionState.dataOrNull ??
+      final msg =
+          ref.read(matchesProvider).actionState.dataOrNull ??
           (updated?.isCompleted == true ? 'Match completed' : 'Set finished');
       AppSnackbar.success(context, msg);
       if (updated?.isCompleted == true) {
@@ -146,11 +151,11 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                   ),
                 ),
                 ListTile(
-                  title: Text('Side A · ${match.sideLabel('A')}'),
+                  title: Text(match.sideLabel('A')),
                   onTap: () => Navigator.pop(ctx, 'A'),
                 ),
                 ListTile(
-                  title: Text('Side B · ${match.sideLabel('B')}'),
+                  title: Text(match.sideLabel('B')),
                   onTap: () => Navigator.pop(ctx, 'B'),
                 ),
                 const SizedBox(height: 8),
@@ -166,14 +171,15 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
 
     final ok = await AppLoader.during(
       context,
-      () => ref.read(matchesProvider.notifier).complete(
-            widget.matchId,
-            winnerSide: winnerSide,
-          ),
+      () => ref
+          .read(matchesProvider.notifier)
+          .complete(widget.matchId, winnerSide: winnerSide),
       message: 'Completing…',
     );
     if (!mounted) return;
     if (ok) {
+      await ref.read(matchesProvider.notifier).loadMatch(widget.matchId);
+      if (!mounted) return;
       final msg =
           ref.read(matchesProvider).actionState.dataOrNull ?? 'Match completed';
       AppSnackbar.success(context, msg);
@@ -191,7 +197,9 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(matchesProvider);
-    final match = state.currentMatch;
+    final match = state.currentMatch?.id == widget.matchId
+        ? state.currentMatch
+        : null;
     final busy = state.actionState.isLoading;
     final timeline = state.timelineState.dataOrNull ?? const [];
     final timelineLoading = state.timelineState.isLoading;
@@ -214,24 +222,6 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         children: [
-                          Text(
-                            match.sport?.name ?? match.matchType.toUpperCase(),
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            match.status.toUpperCase(),
-                            style: TextStyle(
-                              color: match.isLive
-                                  ? AppColors.error
-                                  : AppColors.primary,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
                           Row(
                             children: [
                               Expanded(
@@ -285,30 +275,10 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Sets ${match.scoreSummary} · Set ${match.currentSet?.setNumber ?? 1}',
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${match.formatLabel} · A ${match.setsWonBy('A')}–${match.setsWonBy('B')} B',
-                            style: const TextStyle(
-                              color: AppColors.textTertiary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (match.venueDisplay.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(match.venueDisplay),
-                          ],
                           if (match.winnerSide != null) ...[
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
                             Text(
-                              'Winner · Side ${match.winnerSide}',
+                              'Winner · ${match.sideLabel(match.winnerSide!)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.success700,
@@ -325,9 +295,10 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                       onPressed: busy
                           ? null
                           : () => _run(
-                                () => ref
-                                    .read(matchesProvider.notifier)
-                                    .start(widget.matchId),),
+                              () => ref
+                                  .read(matchesProvider.notifier)
+                                  .start(widget.matchId),
+                            ),
                       child: const Text('Start Match'),
                     ),
                   if (match.status == 'ongoing') ...[
@@ -338,10 +309,11 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                             onPressed: busy
                                 ? null
                                 : () => _run(
-                                      () => ref
-                                          .read(matchesProvider.notifier)
-                                          .recordPoint(widget.matchId, 'A'),),
-                            child: const Text('+1 Side A'),
+                                    () => ref
+                                        .read(matchesProvider.notifier)
+                                        .recordPoint(widget.matchId, 'A'),
+                                  ),
+                            child: Text('+1 ${match.sideLabel('A')}'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -350,10 +322,11 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                             onPressed: busy
                                 ? null
                                 : () => _run(
-                                      () => ref
-                                          .read(matchesProvider.notifier)
-                                          .recordPoint(widget.matchId, 'B'),),
-                            child: const Text('+1 Side B'),
+                                    () => ref
+                                        .read(matchesProvider.notifier)
+                                        .recordPoint(widget.matchId, 'B'),
+                                  ),
+                            child: Text('+1 ${match.sideLabel('B')}'),
                           ),
                         ),
                       ],
@@ -368,7 +341,11 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                           foregroundColor: AppColors.white,
                         ),
                         icon: const Icon(Icons.flag_rounded),
-                        label: const Text('End set'),
+                        label: Text(
+                          match.currentSet != null
+                              ? 'End set ${match.currentSet!.setNumber}'
+                              : 'End set',
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -379,9 +356,10 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                             onPressed: busy
                                 ? null
                                 : () => _run(
-                                      () => ref
-                                          .read(matchesProvider.notifier)
-                                          .undoPoint(widget.matchId),),
+                                    () => ref
+                                        .read(matchesProvider.notifier)
+                                        .undoPoint(widget.matchId),
+                                  ),
                             child: const Text('Undo'),
                           ),
                         ),
@@ -391,18 +369,20 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                             onPressed: busy
                                 ? null
                                 : () => _run(
-                                      () => ref
-                                          .read(matchesProvider.notifier)
-                                          .pause(widget.matchId),),
+                                    () => ref
+                                        .read(matchesProvider.notifier)
+                                        .pause(widget.matchId),
+                                  ),
                             child: const Text('Pause'),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 5),
                         Expanded(
                           child: OutlinedButton(
-                            onPressed:
-                                busy ? null : () => _completeMatch(match),
-                            child: const Text('Force end'),
+                            onPressed: busy
+                                ? null
+                                : () => _completeMatch(match),
+                            child: const Text('End Game'),
                           ),
                         ),
                       ],
@@ -413,9 +393,10 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                       onPressed: busy
                           ? null
                           : () => _run(
-                                () => ref
-                                    .read(matchesProvider.notifier)
-                                    .resume(widget.matchId),),
+                              () => ref
+                                  .read(matchesProvider.notifier)
+                                  .resume(widget.matchId),
+                            ),
                       child: const Text('Resume'),
                     ),
                     const SizedBox(height: 8),
@@ -436,20 +417,36 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                       style: TextStyle(color: AppColors.textSecondary),
                     )
                   else
-                    ...match.sets.map(
-                      (s) => Card(
+                    ...match.sets.map((s) {
+                      final isCurrent =
+                          match.currentSet?.id == s.id && s.isOpen;
+                      return Card(
+                        color: isCurrent
+                            ? AppColors.primary50
+                            : AppColors.white,
                         child: ListTile(
-                          title: Text('Set ${s.setNumber}'),
+                          title: Text(
+                            isCurrent
+                                ? 'Set ${s.setNumber} · Current'
+                                : 'Set ${s.setNumber}',
+                            style: TextStyle(
+                              fontWeight: isCurrent
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                            ),
+                          ),
                           trailing: Text(
                             '${s.sideAScore} - ${s.sideBScore}',
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           subtitle: s.winnerSide != null
-                              ? Text('Winner: Side ${s.winnerSide}')
-                              : const Text('In progress'),
+                              ? Text(
+                                  'Winner: ${match.sideLabel(s.winnerSide!)}',
+                                )
+                              : Text(isCurrent ? 'Scoring now' : 'In progress'),
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                   const SizedBox(height: 20),
                   Row(
                     children: [
@@ -481,7 +478,8 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                   const SizedBox(height: 4),
                   if (state.timelineState.isError)
                     Text(
-                      state.timelineState.errorOrNull ?? 'Failed to load timeline',
+                      state.timelineState.errorOrNull ??
+                          'Failed to load timeline',
                       style: const TextStyle(color: AppColors.error),
                     )
                   else if (timelineLoading && timeline.isEmpty)
@@ -548,8 +546,8 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                                 children: [
                                   Text(
                                     undone
-                                        ? 'Point undone · Side ${p.scoringSide}'
-                                        : 'Point to Side ${p.scoringSide}',
+                                        ? 'Point undone · ${match.sideLabel(p.scoringSide)}'
+                                        : 'Point to ${match.sideLabel(p.scoringSide)}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w700,
                                       color: undone
@@ -562,7 +560,7 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                                   ),
                                   Text(
                                     'Score ${p.sideAScoreAfter}-${p.sideBScoreAfter}'
-                                    '${p.recordedAt != null ? ' · ${p.recordedAt}' : ''}',
+                                    '${p.recordedAt != null ? ' · ${DateFormatter.formatToDateTimeSeconds(p.recordedAt!)}' : ''}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: AppColors.textSecondary,

@@ -1,6 +1,34 @@
 import 'package:sportheroes_mobile/features/auth/models/user_model.dart';
 import 'package:sportheroes_mobile/features/sports/models/sport_model.dart';
 
+class MatchTeamSummary {
+  const MatchTeamSummary({
+    required this.id,
+    required this.name,
+    this.shortName,
+  });
+
+  factory MatchTeamSummary.fromJson(Map<String, dynamic> json) {
+    return MatchTeamSummary(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      shortName: json['shortName'] as String?,
+    );
+  }
+
+  final String id;
+  final String name;
+  final String? shortName;
+
+  String get displayLabel {
+    if (shortName != null && shortName!.trim().isNotEmpty) {
+      return shortName!.trim();
+    }
+    if (name.trim().isNotEmpty) return name.trim();
+    return 'Team';
+  }
+}
+
 class MatchParticipant {
   const MatchParticipant({
     required this.id,
@@ -9,6 +37,7 @@ class MatchParticipant {
     this.teamId,
     this.isWinner = false,
     this.user,
+    this.team,
   });
 
   factory MatchParticipant.fromJson(Map<String, dynamic> json) {
@@ -21,6 +50,11 @@ class MatchParticipant {
       user: json['user'] is Map
           ? UserSummary.fromJson(Map<String, dynamic>.from(json['user'] as Map))
           : null,
+      team: json['team'] is Map
+          ? MatchTeamSummary.fromJson(
+              Map<String, dynamic>.from(json['team'] as Map),
+            )
+          : null,
     );
   }
 
@@ -30,6 +64,37 @@ class MatchParticipant {
   final String? teamId;
   final bool isWinner;
   final UserSummary? user;
+  final MatchTeamSummary? team;
+
+  bool get isTeamSide =>
+      team != null || (teamId != null && teamId!.trim().isNotEmpty);
+
+  String get displayName {
+    if (team != null && team!.displayLabel.isNotEmpty) {
+      return team!.displayLabel;
+    }
+    final userLabel = user?.displayLabel.trim();
+    if (userLabel != null &&
+        userLabel.isNotEmpty &&
+        userLabel.toLowerCase() != 'player') {
+      return userLabel;
+    }
+    return '';
+  }
+
+  MatchParticipant copyWith({
+    MatchTeamSummary? team,
+  }) {
+    return MatchParticipant(
+      id: id,
+      side: side,
+      userId: userId,
+      teamId: teamId,
+      isWinner: isWinner,
+      user: user,
+      team: team ?? this.team,
+    );
+  }
 }
 
 class MatchSet {
@@ -62,6 +127,9 @@ class MatchSet {
   final String? winnerSide;
   final String? startedAt;
   final String? endedAt;
+
+  /// Set is still being played (no winner yet).
+  bool get isOpen => winnerSide == null;
 }
 
 class MatchTimelinePoint {
@@ -157,11 +225,17 @@ class MatchModel {
               )
               .toList()
           : const [],
-      sets: json['sets'] is List
-          ? (json['sets'] as List)
-              .map((e) => MatchSet.fromJson(Map<String, dynamic>.from(e as Map)))
-              .toList()
-          : const [],
+      sets: () {
+        final list = json['sets'] is List
+            ? (json['sets'] as List)
+                .map(
+                  (e) => MatchSet.fromJson(Map<String, dynamic>.from(e as Map)),
+                )
+                .toList()
+            : <MatchSet>[];
+        list.sort((a, b) => a.setNumber.compareTo(b.setNumber));
+        return list;
+      }(),
       sport: json['sport'] is Map
           ? SportModel.fromJson(Map<String, dynamic>.from(json['sport'] as Map))
           : null,
@@ -193,20 +267,45 @@ class MatchModel {
 
   bool get isLive => status == 'ongoing' || status == 'paused';
   bool get isCompleted => status == 'completed';
+  bool get isTeamMatch =>
+      matchType == 'team' || participants.any((p) => p.isTeamSide);
 
   MatchSet? get currentSet {
     if (sets.isEmpty) return null;
-    return sets.lastWhere(
-      (s) => s.endedAt == null,
-      orElse: () => sets.last,
-    );
+    final sorted = [...sets]..sort((a, b) => a.setNumber.compareTo(b.setNumber));
+    // Prefer the highest set number that is still open (no winner).
+    final open = sorted.where((s) => s.isOpen).toList();
+    if (open.isNotEmpty) return open.last;
+    return sorted.last;
   }
 
+  /// Real player or team name for a side — never "Side A/B".
   String sideLabel(String side) {
-    final sidePlayers = participants.where((p) => p.side == side).toList();
-    if (sidePlayers.isEmpty) return 'Side $side';
-    return sidePlayers.map((p) => p.user?.displayLabel ?? 'Player').join(' / ');
+    final sideParts = participants.where((p) => p.side == side).toList();
+    if (sideParts.isEmpty) return 'TBD';
+
+    if (isTeamMatch) {
+      final teamNames = <String>[];
+      for (final p in sideParts) {
+        final name = p.team?.displayLabel.trim();
+        if (name != null && name.isNotEmpty && name.toLowerCase() != 'team') {
+          if (!teamNames.contains(name)) teamNames.add(name);
+        }
+      }
+      if (teamNames.isNotEmpty) return teamNames.join(' / ');
+    }
+
+    final playerNames = sideParts
+        .map((p) => p.displayName)
+        .where((n) => n.isNotEmpty)
+        .toList();
+    if (playerNames.isNotEmpty) return playerNames.join(' / ');
+
+    if (isTeamMatch) return 'Team $side';
+    return 'Player $side';
   }
+
+  String get matchupLabel => '${sideLabel('A')} vs ${sideLabel('B')}';
 
   String get scoreSummary {
     final completed = sets.where((s) => s.winnerSide != null).toList();
@@ -225,8 +324,8 @@ class MatchModel {
     if (status == 'paused') return 'Paused';
     if (status == 'scheduled') return 'Upcoming';
     if (status == 'cancelled') return 'Cancelled';
-    if (winnerSide == 'A') return 'A won';
-    if (winnerSide == 'B') return 'B won';
+    if (winnerSide == 'A') return '${sideLabel('A')} won';
+    if (winnerSide == 'B') return '${sideLabel('B')} won';
     return 'Completed';
   }
 
@@ -246,6 +345,33 @@ class MatchModel {
     final best = bestOfSets;
     final need = setsToWin;
     return 'Best of $best · first to $need';
+  }
+
+  MatchModel copyWith({
+    List<MatchParticipant>? participants,
+  }) {
+    return MatchModel(
+      id: id,
+      sportId: sportId,
+      tournamentId: tournamentId,
+      tournamentRoundId: tournamentRoundId,
+      matchType: matchType,
+      matchFormat: matchFormat,
+      venue: venue,
+      venueId: venueId,
+      venueDetails: venueDetails,
+      scheduledAt: scheduledAt,
+      startedAt: startedAt,
+      finishedAt: finishedAt,
+      status: status,
+      winnerSide: winnerSide,
+      createdBy: createdBy,
+      participants: participants ?? this.participants,
+      sets: sets,
+      sport: sport,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
   }
 }
 

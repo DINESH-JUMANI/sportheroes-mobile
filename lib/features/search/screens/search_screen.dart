@@ -50,6 +50,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         );
   }
 
+  void _clearSearch() {
+    _controller.clear();
+    setState(() {});
+    ref.read(searchProvider.notifier).clear();
+    _focusNode.requestFocus();
+  }
+
   void _onResultTap(SearchResult result) {
     switch (result.resultType) {
       case SearchResultType.team:
@@ -114,6 +121,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
             ),
+            suffixIcon: _controller.text.isNotEmpty
+                ? IconButton(
+                    tooltip: 'Clear',
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.greyscale70,
+                    ),
+                    onPressed: _clearSearch,
+                  )
+                : null,
           ),
           style: const TextStyle(
             color: AppColors.textPrimary,
@@ -124,7 +141,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _search(),
           onChanged: (v) {
-            if (v.trim().length >= 2) _search();
+            setState(() {});
+            if (v.trim().length >= 2) {
+              _search();
+            } else if (v.trim().isEmpty) {
+              ref.read(searchProvider.notifier).clear();
+            }
           },
         ),
         actions: [
@@ -147,8 +169,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
-                    label: Text(t.$2),
+                    label: Text(
+                      t.$2,
+                      style: TextStyle(
+                        color: selected ? AppColors.white : AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     selected: selected,
+                    selectedColor: AppColors.primary,
+                    backgroundColor: AppColors.primary50,
+                    checkmarkColor: AppColors.white,
+                    side: BorderSide.none,
                     onSelected: (v) {
                       setState(() {
                         if (v) {

@@ -287,20 +287,21 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
             ],
             const SizedBox(height: 14),
             DropdownButtonFormField<int>(
-              initialValue: _bestOfSets,
+              initialValue: _bestOfSets == 2 || _bestOfSets == 4
+                  ? 3
+                  : _bestOfSets,
               decoration: const InputDecoration(
                 labelText: 'Number of sets',
                 prefixIcon: Icon(Icons.format_list_numbered_rounded),
-                helperText: 'Best of 1–5 (first to majority wins)',
+                helperText: 'Best of 1, 3 or 5 (first to majority wins)',
               ),
-              items: List.generate(5, (i) {
-                final n = i + 1;
+              items: const [1, 3, 5].map((n) {
                 final toWin = (n + 1) ~/ 2;
                 return DropdownMenuItem(
                   value: n,
                   child: Text('Best of $n · first to $toWin'),
                 );
-              }),
+              }).toList(),
               onChanged: (v) {
                 if (v != null) setState(() => _bestOfSets = v);
               },

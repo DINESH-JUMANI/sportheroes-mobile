@@ -34,7 +34,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     final storage = ref.read(localStorageServiceProvider);
     final isOnboarded = storage.isOnboarded;
-    final auth = ref.read(authProvider);
+    var auth = ref.read(authProvider);
 
     AppLogger.debug(
       'Splash checks - isOnboarded: $isOnboarded, step: ${auth.step}',
@@ -46,13 +46,25 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       return;
     }
 
-    if (auth.step == AuthStep.profile) {
-      Navigator.pushReplacementNamed(context, AppRoutes.completeProfile);
-      return;
-    }
+    if (storage.isLoggedIn) {
+      AppLogger.info('Validating JWT via player-profiles/me…');
+      final valid =
+          await ref.read(authProvider.notifier).validateSession();
+      if (!mounted) return;
 
-    if (auth.step == AuthStep.authenticated && storage.isLoggedIn) {
-      AppLogger.info('Session found, navigating to Home');
+      if (!valid) {
+        AppLogger.info('JWT invalid/expired — redirecting to login');
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
+        return;
+      }
+
+      auth = ref.read(authProvider);
+      if (auth.step == AuthStep.profile) {
+        Navigator.pushReplacementNamed(context, AppRoutes.completeProfile);
+        return;
+      }
+
+      AppLogger.info('Session valid, navigating to Home');
       Navigator.pushReplacementNamed(context, AppRoutes.home);
       return;
     }
