@@ -1,29 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportheroes_mobile/core/constants/app_colors.dart';
-import 'package:sportheroes_mobile/core/mock/mock_data.dart';
 import 'package:sportheroes_mobile/features/auth/providers/auth_provider.dart';
-import 'package:sportheroes_mobile/features/profile/widgets/profile_stat_tile.dart';
 import 'package:sportheroes_mobile/routes/app_routes.dart';
-import 'package:sportheroes_mobile/utils/app_snackbar.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authProvider);
-    final user = auth.user;
-    final mock = MockData.currentUser;
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
 
-    final name = user?.displayLabel ?? mock['displayName'] as String;
-    final phone = user?.phoneNumber ?? mock['phoneNumber'] as String;
-    final city = user?.city ?? mock['city'] as String;
-    final isLoggingOut = auth.logoutState.isLoading;
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(authProvider.notifier).refreshMe();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(authProvider).user;
+    final name = user?.displayLabel ?? 'Player';
+    final phone = user?.phoneNumber ?? '';
+    final city = [
+      user?.city,
+      user?.state,
+      user?.country,
+    ].where((e) => e != null && e.trim().isNotEmpty).join(', ');
+    final pictureUrl = user?.profilePictureUrl;
 
     return Scaffold(
-      backgroundColor: AppColors.grey50,
-      appBar: AppBar(title: const Text('Profile')),
+      backgroundColor: AppColors.secondary,
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          IconButton(
+            tooltip: 'Edit profile',
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () async {
+              await Navigator.pushNamed(context, AppRoutes.editProfile);
+              if (!mounted) return;
+              await ref.read(authProvider.notifier).refreshMe();
+            },
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -33,73 +57,76 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   CircleAvatar(
-                    radius: 40,
+                    radius: 48,
                     backgroundColor: AppColors.primary100,
-                    child: Text(
-                      user?.avatarInitial ??
-                          (name.isNotEmpty
-                              ? name.substring(0, 1).toUpperCase()
-                              : '?'),
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                      ),
-                    ),
+                    backgroundImage:
+                        pictureUrl != null && pictureUrl.trim().isNotEmpty
+                            ? NetworkImage(pictureUrl)
+                            : null,
+                    child: pictureUrl == null || pictureUrl.trim().isEmpty
+                        ? Text(
+                            user?.avatarInitial ??
+                                (name.isNotEmpty
+                                    ? name.substring(0, 1).toUpperCase()
+                                    : '?'),
+                            style: const TextStyle(
+                              fontSize: 34,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   Text(
                     name,
                     style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(phone, style: const TextStyle(color: AppColors.textSecondary)),
-                  Text(city, style: const TextStyle(color: AppColors.textSecondary)),
+                  const SizedBox(height: 6),
+                  if (phone.isNotEmpty)
+                    Text(
+                      phone,
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  if (city.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      city,
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        await Navigator.pushNamed(
+                          context,
+                          AppRoutes.editProfile,
+                        );
+                        if (!mounted) return;
+                        await ref.read(authProvider.notifier).refreshMe();
+                      },
+                      icon: const Icon(Icons.edit_rounded, size: 18),
+                      label: const Text('Edit profile'),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          ProfileStatTile(
-            label: 'Matches played',
-            value: '${mock['matchesPlayed']}',
-          ),
-          ProfileStatTile(label: 'Wins', value: '${mock['wins']}'),
-          ProfileStatTile(label: 'Losses', value: '${mock['losses']}'),
-          ProfileStatTile(
-            label: 'Win percentage',
-            value: '${mock['winPercentage']}%',
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: isLoggingOut
-                  ? null
-                  : () async {
-                      await ref.read(authProvider.notifier).logout();
-                      if (!context.mounted) return;
-                      AppSnackbar.success(context, 'Logged out');
-                      Navigator.pushNamedAndRemoveUntil(
-                        context,
-                        AppRoutes.login,
-                        (route) => false,
-                      );
-                    },
-              icon: isLoggingOut
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.logout),
-              label: const Text('Logout'),
+          const SizedBox(height: 12),
+          if (user?.email != null && user!.email!.trim().isNotEmpty)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.email_outlined),
+                title: const Text('Email'),
+                subtitle: Text(user.email!),
+              ),
             ),
-          ),
         ],
       ),
     );

@@ -29,24 +29,44 @@ class UpdateProfileRequest {
   const UpdateProfileRequest({
     this.fullName,
     this.displayName,
-    this.city,
-    this.country,
+    this.email,
+    this.profilePictureUrl,
+    this.profilePictureBase64,
+    this.profilePictureMimeType,
+    this.dateOfBirth,
     this.gender,
+    this.city,
+    this.state,
+    this.country,
   });
 
   final String? fullName;
   final String? displayName;
-  final String? city;
-  final String? country;
+  final String? email;
+  final String? profilePictureUrl;
+  final String? profilePictureBase64;
+  final String? profilePictureMimeType;
+  final String? dateOfBirth;
   final String? gender;
+  final String? city;
+  final String? state;
+  final String? country;
 
   Map<String, dynamic> toJson() {
     return {
       if (fullName != null) 'fullName': fullName,
       if (displayName != null) 'displayName': displayName,
-      if (city != null) 'city': city,
-      if (country != null) 'country': country,
+      if (email != null) 'email': email,
+      if (profilePictureUrl != null) 'profilePictureUrl': profilePictureUrl,
+      if (profilePictureBase64 != null)
+        'profilePictureBase64': profilePictureBase64,
+      if (profilePictureMimeType != null)
+        'profilePictureMimeType': profilePictureMimeType,
+      if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
       if (gender != null) 'gender': gender,
+      if (city != null) 'city': city,
+      if (state != null) 'state': state,
+      if (country != null) 'country': country,
     };
   }
 }

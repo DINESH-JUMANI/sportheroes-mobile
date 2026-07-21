@@ -7,7 +7,8 @@ class AppAssets {
   static const String _logosPath = 'assets/logos';
 
   // Logo
-  static const String logoBlue = '$_logosPath/logo_blue.png';
+  static const String sportHeroesLogo = '$_logosPath/sport_heroes.png';
+
 
   // Images
   static const String onboardingImage = '$_imagesPath/onboarding_operative.png';

@@ -27,6 +27,7 @@ class MyApp extends ConsumerWidget {
 
               initialRoute: AppRoutes.splash,
               routes: AppRoutes.routes,
+              onGenerateRoute: AppRoutes.onGenerateRoute,
             );
           },
         );

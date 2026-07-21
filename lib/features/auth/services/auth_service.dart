@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:sportheroes_mobile/core/constants/api_constants.dart';
+import 'package:sportheroes_mobile/core/models/api_result.dart';
+import 'package:sportheroes_mobile/core/network/api_helpers.dart';
 import 'package:sportheroes_mobile/core/network/dio_client.dart';
 import 'package:sportheroes_mobile/features/auth/models/login_response.dart';
 import 'package:sportheroes_mobile/features/auth/models/user_model.dart';
@@ -37,13 +39,19 @@ class AuthService {
     }
   }
 
-  Future<UserModel> updateProfile(UpdateProfileRequest request) async {
+  Future<ApiResult<UserModel>> updateProfile(UpdateProfileRequest request) async {
     try {
       final response = await _dio.patch(
         ApiConstants.authProfile,
         data: request.toJson(),
       );
-      return UserModel.fromJson(_extractUserPayload(response.data));
+      return ApiResult(
+        data: UserModel.fromJson(_extractUserPayload(response.data)),
+        message: ApiHelpers.extractMessage(
+          response.data,
+          fallback: 'Profile updated',
+        ),
+      );
     } on DioException catch (e) {
       throw Exception(_extractError(e));
     }
@@ -59,12 +67,14 @@ class AuthService {
     return data;
   }
 
-  Future<void> logout() async {
+  Future<String> logout() async {
     try {
-      await _dio.post(ApiConstants.authLogout);
+      final response = await _dio.post(ApiConstants.authLogout);
+      return ApiHelpers.extractMessage(response.data, fallback: 'Logged out');
     } on DioException catch (e) {
       // Still clear local session even if API fails.
       AppLogger.warning('Logout API failed: ${_extractError(e)}');
+      return 'Logged out';
     }
   }
 

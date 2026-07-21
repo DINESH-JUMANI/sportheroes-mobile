@@ -32,7 +32,8 @@ class AuthSessionState {
     this.sendOtpState = const ApiInitial<bool>(),
     this.verifyOtpState = const ApiInitial<bool>(),
     this.profileState = const ApiInitial<UserModel>(),
-    this.logoutState = const ApiInitial<bool>(),
+    this.logoutState = const ApiInitial<String>(),
+    this.lastActionMessage,
   });
 
   final AuthStep step;
@@ -51,7 +52,8 @@ class AuthSessionState {
   /// Loading / success / error for profile update / fetch.
   final ApiState<UserModel> profileState;
 
-  final ApiState<bool> logoutState;
+  final ApiState<String> logoutState;
+  final String? lastActionMessage;
 
   bool get isBusy =>
       sendOtpState.isLoading ||
@@ -69,7 +71,8 @@ class AuthSessionState {
     ApiState<bool>? sendOtpState,
     ApiState<bool>? verifyOtpState,
     ApiState<UserModel>? profileState,
-    ApiState<bool>? logoutState,
+    ApiState<String>? logoutState,
+    String? lastActionMessage,
     bool clearUser = false,
     bool clearVerification = false,
   }) {
@@ -88,6 +91,7 @@ class AuthSessionState {
       verifyOtpState: verifyOtpState ?? this.verifyOtpState,
       profileState: profileState ?? this.profileState,
       logoutState: logoutState ?? this.logoutState,
+      lastActionMessage: lastActionMessage ?? this.lastActionMessage,
     );
   }
 }
@@ -229,14 +233,15 @@ class AuthNotifier extends Notifier<AuthSessionState> {
     state = state.copyWith(profileState: const ApiLoading<UserModel>());
 
     try {
-      final user = await _auth.updateProfile(request);
+      final result = await _auth.updateProfile(request);
       final storage = ref.read(localStorageServiceProvider);
-      await storage.setUserJson(user.toJson());
+      await storage.setUserJson(result.data.toJson());
 
       state = state.copyWith(
-        user: user,
+        user: result.data,
         step: AuthStep.authenticated,
-        profileState: ApiSuccess(user),
+        profileState: ApiSuccess(result.data),
+        lastActionMessage: result.message,
       );
       return true;
     } catch (e) {
@@ -265,13 +270,14 @@ class AuthNotifier extends Notifier<AuthSessionState> {
   }
 
   Future<void> logout() async {
-    state = state.copyWith(logoutState: const ApiLoading<bool>());
+    state = state.copyWith(logoutState: const ApiLoading<String>());
+    String message = 'Logged out';
     try {
-      await _auth.logout();
+      message = await _auth.logout();
     } finally {
       await _firebase.signOut();
       await ref.read(localStorageServiceProvider).clearSession();
-      state = const AuthSessionState(logoutState: ApiSuccess(true));
+      state = AuthSessionState(logoutState: ApiSuccess(message));
     }
   }
 

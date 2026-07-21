@@ -104,32 +104,38 @@ class DeviceLocationService {
   Future<LocationAvailabilityStatus> checkAvailability({
     bool requestPermissionIfDenied = false,
   }) async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return LocationAvailabilityStatus.serviceDisabled;
-    }
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        return LocationAvailabilityStatus.serviceDisabled;
+      }
 
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied && requestPermissionIfDenied) {
-      try {
-        permission = await Geolocator.requestPermission().timeout(
-          const Duration(seconds: 5),
-        );
-      } on TimeoutException {
-        AppLogger.warning(
-          'Geolocator.requestPermission timed out after 5s in checkAvailability',
-        );
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied &&
+          requestPermissionIfDenied) {
+        try {
+          permission = await Geolocator.requestPermission().timeout(
+            const Duration(seconds: 5),
+          );
+        } on TimeoutException {
+          AppLogger.warning(
+            'Geolocator.requestPermission timed out after 5s in checkAvailability',
+          );
+          return LocationAvailabilityStatus.permissionDenied;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        return LocationAvailabilityStatus.permissionDeniedForever;
+      }
+      if (permission == LocationPermission.denied) {
         return LocationAvailabilityStatus.permissionDenied;
       }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      return LocationAvailabilityStatus.permissionDeniedForever;
-    }
-    if (permission == LocationPermission.denied) {
+      return LocationAvailabilityStatus.available;
+    } catch (e, st) {
+      AppLogger.error('checkAvailability failed: $e', e, st);
       return LocationAvailabilityStatus.permissionDenied;
     }
-    return LocationAvailabilityStatus.available;
   }
 
   /// Collect GPS position, reverse-geocoded address, and device info.
@@ -192,18 +198,30 @@ class DeviceLocationService {
     }
 
     // Reverse geocode
+    String? street;
+    String? city;
+    String? state;
+    String? country;
     if (latitude != null && longitude != null) {
       try {
         final placemarks = await placemarkFromCoordinates(latitude, longitude);
         if (placemarks.isNotEmpty) {
           final p = placemarks.first;
-          final parts = [
+          street = [
             p.street,
             p.subLocality,
-            p.locality,
-            p.administrativeArea,
+          ].where((s) => s != null && s.isNotEmpty).join(', ');
+          city = p.locality?.isNotEmpty == true
+              ? p.locality
+              : p.subAdministrativeArea;
+          state = p.administrativeArea;
+          country = p.country;
+          final parts = [
+            street,
+            city,
+            state,
             p.postalCode,
-            p.country,
+            country,
           ].where((s) => s != null && s.isNotEmpty);
           address = parts.join(', ');
         }
@@ -217,6 +235,10 @@ class DeviceLocationService {
       longitude: longitude,
       accuracy: accuracy,
       address: address,
+      street: street,
+      city: city,
+      state: state,
+      country: country,
       deviceInfo: _cachedDeviceInfo,
     );
   }

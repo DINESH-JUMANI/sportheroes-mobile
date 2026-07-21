@@ -4,6 +4,10 @@ class DeviceLocationData {
     this.longitude,
     this.accuracy,
     this.address,
+    this.street,
+    this.city,
+    this.state,
+    this.country,
     this.deviceInfo,
   });
 
@@ -11,6 +15,10 @@ class DeviceLocationData {
   final double? longitude;
   final double? accuracy;
   final String? address;
+  final String? street;
+  final String? city;
+  final String? state;
+  final String? country;
   final String? deviceInfo;
 
   /// Formatted GPS coordinates string (e.g. "51.5074, -0.1278")
@@ -27,10 +35,14 @@ class DeviceLocationData {
 
   /// Serialize for API payloads
   Map<String, dynamic> toJson() => {
-    'latitude': latitude,
-    'longitude': longitude,
-    'accuracy': accuracy,
-    'address': address,
-    'deviceInfo': deviceInfo,
-  };
+        'latitude': latitude,
+        'longitude': longitude,
+        'accuracy': accuracy,
+        'address': address,
+        'street': street,
+        'city': city,
+        'state': state,
+        'country': country,
+        'deviceInfo': deviceInfo,
+      };
 }

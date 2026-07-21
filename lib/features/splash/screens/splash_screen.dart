@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportheroes_mobile/core/constants/app_assets.dart';
 import 'package:sportheroes_mobile/core/constants/app_colors.dart';
 import 'package:sportheroes_mobile/core/providers/providers.dart';
 import 'package:sportheroes_mobile/core/services/device_location_service.dart';
@@ -75,15 +76,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.primary800,
+    return Scaffold(
+      backgroundColor: AppColors.primary,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.sports_tennis, size: 64, color: AppColors.white),
-            SizedBox(height: 16),
-            Text(
+            Image.asset(
+              AppAssets.sportHeroesLogo,
+              width: 140,
+              height: 140,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(height: 20),
+            const Text(
               'SportHeroes',
               style: TextStyle(
                 color: AppColors.white,

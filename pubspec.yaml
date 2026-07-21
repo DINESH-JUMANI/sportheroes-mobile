@@ -23,12 +23,23 @@ dependencies:
   intl: ^0.20.3
   firebase_core: ^4.11.0
   firebase_auth: ^6.5.4
+  image_picker: ^1.2.3
+  persistent_bottom_nav_bar_v2: 6.3.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/logos/sport_heroes.png
+  adaptive_icon_background: "#083879"
+  adaptive_icon_foreground: assets/logos/sport_heroes.png
+  remove_alpha_ios: true
 
 flutter:
   uses-material-design: true

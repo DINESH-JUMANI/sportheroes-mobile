@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sportheroes_mobile/core/constants/app_colors.dart';
 
 enum SnackbarType { success, error, warning, info }
 
@@ -42,13 +43,19 @@ class AppSnackbar {
         behavior: SnackBarBehavior.floating,
         backgroundColor: color,
         duration: const Duration(seconds: 3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         content: Row(
           children: [
-            Icon(icon, color: Colors.white),
+            Icon(icon, color: AppColors.white),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(message, style: const TextStyle(color: Colors.white)),
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         ),
@@ -59,13 +66,13 @@ class AppSnackbar {
   static Color _getColor(SnackbarType type) {
     switch (type) {
       case SnackbarType.success:
-        return Colors.green;
+        return AppColors.success;
       case SnackbarType.error:
-        return Colors.red;
+        return AppColors.error;
       case SnackbarType.warning:
-        return Colors.orange;
+        return AppColors.warning700;
       case SnackbarType.info:
-        return Colors.blue;
+        return AppColors.primary;
     }
   }
 

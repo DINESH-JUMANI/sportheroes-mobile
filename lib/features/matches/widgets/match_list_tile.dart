@@ -10,6 +10,7 @@ class MatchListTile extends StatelessWidget {
     required this.result,
     required this.date,
     this.isLive = false,
+    this.onTap,
   });
 
   final String sport;
@@ -18,21 +19,24 @@ class MatchListTile extends StatelessWidget {
   final String result;
   final String date;
   final bool isLive;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final badgeColor = isLive || result == 'LIVE'
         ? AppColors.error
-        : result == 'Won'
-        ? AppColors.success
-        : result == 'Lost'
-        ? AppColors.error
-        : AppColors.warning;
+        : result.toLowerCase().contains('won')
+            ? AppColors.success
+            : result == 'Upcoming'
+                ? AppColors.warning
+                : AppColors.grey500;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        onTap: onTap,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Text(
           opponent,
           style: const TextStyle(fontWeight: FontWeight.w700),
