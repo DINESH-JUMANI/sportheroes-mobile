@@ -65,15 +65,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     final email = _emailController.text.trim();
     final phoneRaw = _phoneController.text.trim();
-    if (email.isEmpty && phoneRaw.isEmpty) {
-      AppSnackbar.error(context, 'Enter an email or phone number');
-      return;
-    }
 
     final notifier = ref.read(authProvider.notifier);
     final ok = await notifier.register(
       email: email.isEmpty ? null : email,
-      phoneNumber: phoneRaw.isEmpty ? null : notifier.formatPhone(phoneRaw),
+      phoneNumber: notifier.formatPhone(phoneRaw),
       password: _passwordController.text,
       fullName: _fullNameController.text.trim(),
     );
@@ -122,7 +118,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const AuthHeader(
                   title: 'Create account',
                   subtitle:
-                      'Register with email and/or phone plus a password. At least one contact is required.',
+                      'Register with your phone number and password. Email is optional.',
                 ),
                 const SizedBox(height: 28),
                 TextFormField(
@@ -152,15 +148,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
-                    labelText: 'Phone (optional)',
+                    labelText: 'Phone number',
                     hintText: '10-digit mobile',
                     prefixIcon: Icon(Icons.phone_outlined),
                     prefixText: '+91 ',
                   ),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return null;
-                    return Validators.phone(v, maxLength: 10);
-                  },
+                  validator: (v) => Validators.phone(v, maxLength: 10),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(

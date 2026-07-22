@@ -293,13 +293,12 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
               decoration: const InputDecoration(
                 labelText: 'Number of sets',
                 prefixIcon: Icon(Icons.format_list_numbered_rounded),
-                helperText: 'Best of 1, 3 or 5 (first to majority wins)',
+                helperText: 'Best of 1, 3 or 5',
               ),
               items: const [1, 3, 5].map((n) {
-                final toWin = (n + 1) ~/ 2;
                 return DropdownMenuItem(
                   value: n,
-                  child: Text('Best of $n · first to $toWin'),
+                  child: Text('Best of $n'),
                 );
               }).toList(),
               onChanged: (v) {

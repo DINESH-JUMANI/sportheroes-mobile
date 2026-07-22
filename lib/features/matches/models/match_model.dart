@@ -354,11 +354,7 @@ class MatchModel {
   int setsWonBy(String side) =>
       sets.where((s) => s.winnerSide == side).length;
 
-  String get formatLabel {
-    final best = bestOfSets;
-    final need = setsToWin;
-    return 'Best of $best · first to $need';
-  }
+  String get formatLabel => 'Best of $bestOfSets';
 
   MatchModel copyWith({
     List<MatchParticipant>? participants,
