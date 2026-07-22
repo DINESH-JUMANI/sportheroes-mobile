@@ -10,6 +10,7 @@ class TeamCard extends StatelessWidget {
     required this.captain,
     required this.members,
     this.shortName,
+    this.logoUrl,
     this.hasLogo = false,
     this.onTap,
   });
@@ -19,6 +20,7 @@ class TeamCard extends StatelessWidget {
   final String? shortName;
   final String captain;
   final int members;
+  final String? logoUrl;
   final bool hasLogo;
   final VoidCallback? onTap;
 
@@ -40,8 +42,8 @@ class TeamCard extends StatelessWidget {
           child: Row(
             children: [
               TeamLogoAvatar(
-                teamId: teamId,
                 name: name,
+                logoUrl: logoUrl,
                 hasLogo: hasLogo,
                 radius: 28,
               ),

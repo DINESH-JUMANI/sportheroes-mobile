@@ -34,7 +34,7 @@ class Validators {
     return null;
   }
 
-  static String? password(String? value, {int minLength = 12}) {
+  static String? password(String? value, {int minLength = 8}) {
     if (value == null || value.isEmpty) {
       return 'Password is required';
     }

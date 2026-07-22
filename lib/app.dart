@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportheroes_mobile/core/services/theme_service.dart';
+import 'package:sportheroes_mobile/core/widgets/offline_gate.dart';
 import 'package:sportheroes_mobile/routes/app_routes.dart';
 
 class MyApp extends ConsumerWidget {
@@ -24,6 +25,7 @@ class MyApp extends ConsumerWidget {
               theme: ThemeService.lightTheme,
               darkTheme: ThemeService.darkTheme,
               themeMode: themeMode,
+              builder: (context, child) => OfflineGate(child: child),
 
               initialRoute: AppRoutes.splash,
               routes: AppRoutes.routes,

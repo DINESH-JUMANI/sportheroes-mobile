@@ -274,21 +274,12 @@ class MatchModel {
   bool get isTeamMatch =>
       matchType == 'team' || participants.any((p) => p.isTeamSide);
 
-  /// Resolves who may score: API/local [startedBy], then first timeline scorer.
-  String? controllerUserId({String? timelineScorerId}) {
-    final fromApi = startedBy?.trim();
-    if (fromApi != null && fromApi.isNotEmpty) return fromApi;
-    final fromTimeline = timelineScorerId?.trim();
-    if (fromTimeline != null && fromTimeline.isNotEmpty) return fromTimeline;
-    return null;
-  }
-
-  /// Only the match controller can score / pause / end while live.
-  bool canManageScoring(String? userId, {String? timelineScorerId}) {
+  /// Only the BE `startedBy` user may score / pause / end while live.
+  bool canManageScoring(String? userId) {
     if (userId == null || userId.isEmpty) return false;
     if (!isLive) return false;
-    final controller = controllerUserId(timelineScorerId: timelineScorerId);
-    if (controller == null) return false;
+    final controller = startedBy?.trim();
+    if (controller == null || controller.isEmpty) return false;
     return controller == userId;
   }
 

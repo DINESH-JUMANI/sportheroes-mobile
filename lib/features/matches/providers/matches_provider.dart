@@ -3,7 +3,6 @@ import 'package:sportheroes_mobile/core/models/api_result.dart';
 import 'package:sportheroes_mobile/core/models/api_state.dart';
 import 'package:sportheroes_mobile/core/network/api_helpers.dart';
 import 'package:sportheroes_mobile/core/providers/providers.dart';
-import 'package:sportheroes_mobile/core/services/local_storage_service.dart';
 import 'package:sportheroes_mobile/features/matches/models/match_model.dart';
 import 'package:sportheroes_mobile/features/matches/services/matches_service.dart';
 import 'package:sportheroes_mobile/features/teams/providers/teams_provider.dart';
@@ -105,40 +104,6 @@ class MatchesNotifier extends Notifier<MatchesState> {
     return list.first;
   }
 
-  MatchModel _withLocalScorer(MatchModel match) {
-    final api = match.startedBy?.trim();
-    if (api != null && api.isNotEmpty) return match;
-    final local = LocalStorageService.instance.getMatchScorer(match.id);
-    if (local == null || local.isEmpty) return match;
-    return match.copyWith(startedBy: local);
-  }
-
-  String? _timelineScorerId(List<MatchTimelinePoint> timeline) {
-    final active = timeline
-        .where(
-          (p) =>
-              !p.isUndone &&
-              p.recordedBy != null &&
-              p.recordedBy!.trim().isNotEmpty,
-        )
-        .toList();
-    if (active.isEmpty) return null;
-    active.sort((a, b) => a.pointNumber.compareTo(b.pointNumber));
-    return active.first.recordedBy;
-  }
-
-  MatchModel _mergeScorerFromTimeline(
-    MatchModel match,
-    List<MatchTimelinePoint> timeline,
-  ) {
-    if (match.startedBy != null && match.startedBy!.trim().isNotEmpty) {
-      return match;
-    }
-    final fromTimeline = _timelineScorerId(timeline);
-    if (fromTimeline == null) return match;
-    return match.copyWith(startedBy: fromTimeline);
-  }
-
   Future<void> loadMatches({
     String? status,
     String? participantPhone,
@@ -205,9 +170,7 @@ class MatchesNotifier extends Notifier<MatchesState> {
   Future<void> loadMatch(String id) async {
     state = state.copyWith(detailState: const ApiLoading());
     try {
-      final match = _withLocalScorer(
-        await _withTeamName(await _service.getMatch(id)),
-      );
+      final match = await _withTeamName(await _service.getMatch(id));
       state = state.copyWith(detailState: ApiSuccess(match));
     } catch (e) {
       state = state.copyWith(detailState: ApiError(ApiHelpers.cleanError(e)));
@@ -216,13 +179,7 @@ class MatchesNotifier extends Notifier<MatchesState> {
 
   Future<void> refreshMatch(String id) async {
     try {
-      var match = _withLocalScorer(
-        await _withTeamName(await _service.getMatch(id)),
-      );
-      final timeline = state.timelineState.dataOrNull;
-      if (timeline != null) {
-        match = _mergeScorerFromTimeline(match, timeline);
-      }
+      final match = await _withTeamName(await _service.getMatch(id));
       state = state.copyWith(detailState: ApiSuccess(match));
     } catch (_) {
       // Silent refresh failure.
@@ -233,16 +190,7 @@ class MatchesNotifier extends Notifier<MatchesState> {
     state = state.copyWith(timelineState: const ApiLoading());
     try {
       final timeline = await _service.getTimeline(id);
-      var match = state.currentMatch;
-      if (match != null && match.id == id) {
-        match = _mergeScorerFromTimeline(match, timeline);
-        state = state.copyWith(
-          timelineState: ApiSuccess(timeline),
-          detailState: ApiSuccess(match),
-        );
-      } else {
-        state = state.copyWith(timelineState: ApiSuccess(timeline));
-      }
+      state = state.copyWith(timelineState: ApiSuccess(timeline));
     } catch (e) {
       state = state.copyWith(
         timelineState: ApiError(ApiHelpers.cleanError(e)),
@@ -255,7 +203,7 @@ class MatchesNotifier extends Notifier<MatchesState> {
     try {
       final result = await _service.createMatch(request);
       await loadRecentAndScheduled();
-      final match = _withLocalScorer(await _withTeamName(result.data));
+      final match = await _withTeamName(result.data);
       state = state.copyWith(
         actionState: ApiSuccess(result.message),
         detailState: ApiSuccess(match),
@@ -267,20 +215,7 @@ class MatchesNotifier extends Notifier<MatchesState> {
     }
   }
 
-  Future<bool> start(String id, {required String startedByUserId}) async {
-    final ok = await _runAction(() => _service.start(id));
-    if (ok && startedByUserId.isNotEmpty) {
-      await LocalStorageService.instance.setMatchScorer(id, startedByUserId);
-      final match = state.currentMatch;
-      if (match != null && match.id == id) {
-        state = state.copyWith(
-          detailState: ApiSuccess(match.copyWith(startedBy: startedByUserId)),
-        );
-      }
-    }
-    return ok;
-  }
-
+  Future<bool> start(String id) => _runAction(() => _service.start(id));
   Future<bool> pause(String id) => _runAction(() => _service.pause(id));
   Future<bool> resume(String id) => _runAction(() => _service.resume(id));
   Future<bool> undoPoint(String id) => _runAction(() => _service.undoPoint(id));
@@ -301,7 +236,7 @@ class MatchesNotifier extends Notifier<MatchesState> {
     state = state.copyWith(actionState: const ApiLoading());
     try {
       final result = await action();
-      final match = _withLocalScorer(await _withTeamName(result.data));
+      final match = await _withTeamName(result.data);
       state = state.copyWith(
         actionState: ApiSuccess(result.message),
         detailState: ApiSuccess(match),

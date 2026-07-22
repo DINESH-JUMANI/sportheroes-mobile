@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportheroes_mobile/core/constants/app_colors.dart';
@@ -27,8 +25,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late final TextEditingController _country;
 
   String? _gender;
-  String? _logoBase64;
-  String? _logoMime;
+  PickedImageFile? _pickedAvatar;
   String? _existingPictureUrl;
 
   static const _genders = [
@@ -64,12 +61,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final picked = await ImagePickerHelper.pickLogo();
-    if (picked == null) return;
-    setState(() {
-      _logoBase64 = picked.base64;
-      _logoMime = picked.mimeType;
-    });
+    try {
+      final picked = await ImagePickerHelper.pickImage();
+      if (picked == null) return;
+      setState(() => _pickedAvatar = picked);
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbar.error(context, e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   Future<void> _save() async {
@@ -77,22 +76,27 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     final ok = await AppLoader.during(
       context,
-      () => ref.read(authProvider.notifier).completeProfile(
-            UpdateProfileRequest(
-              fullName: _fullName.text.trim(),
-              displayName: _displayName.text.trim().isEmpty
-                  ? null
-                  : _displayName.text.trim(),
-              email: _email.text.trim().isEmpty ? null : _email.text.trim(),
-              city: _city.text.trim().isEmpty ? null : _city.text.trim(),
-              state: _state.text.trim().isEmpty ? null : _state.text.trim(),
-              country:
-                  _country.text.trim().isEmpty ? null : _country.text.trim(),
-              gender: _gender,
-              profilePictureBase64: _logoBase64,
-              profilePictureMimeType: _logoMime,
-            ),
-          ),
+      () async {
+        final profileOk = await ref.read(authProvider.notifier).completeProfile(
+              UpdateProfileRequest(
+                fullName: _fullName.text.trim(),
+                displayName: _displayName.text.trim().isEmpty
+                    ? null
+                    : _displayName.text.trim(),
+                email: _email.text.trim().isEmpty ? null : _email.text.trim(),
+                city: _city.text.trim().isEmpty ? null : _city.text.trim(),
+                state: _state.text.trim().isEmpty ? null : _state.text.trim(),
+                country:
+                    _country.text.trim().isEmpty ? null : _country.text.trim(),
+                gender: _gender,
+              ),
+            );
+        if (!profileOk) return false;
+        if (_pickedAvatar != null) {
+          return ref.read(authProvider.notifier).uploadAvatar(_pickedAvatar!);
+        }
+        return true;
+      },
       message: 'Saving profile…',
     );
 
@@ -112,8 +116,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     ImageProvider? avatar;
-    if (_logoBase64 != null) {
-      avatar = MemoryImage(base64Decode(_logoBase64!));
+    if (_pickedAvatar != null) {
+      avatar = FileImage(_pickedAvatar!.file);
     } else if (_existingPictureUrl != null &&
         _existingPictureUrl!.trim().isNotEmpty) {
       avatar = NetworkImage(_existingPictureUrl!);

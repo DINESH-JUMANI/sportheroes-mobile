@@ -1,7 +1,6 @@
 class UserModel {
   const UserModel({
     required this.id,
-    required this.firebaseUid,
     required this.phoneNumber,
     this.email,
     this.fullName,
@@ -14,6 +13,7 @@ class UserModel {
     this.country,
     this.isActive = true,
     this.isProfileComplete = false,
+    this.hasPassword = true,
     this.createdAt,
     this.updatedAt,
   });
@@ -21,7 +21,6 @@ class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id']?.toString() ?? '',
-      firebaseUid: json['firebaseUid']?.toString() ?? '',
       phoneNumber: json['phoneNumber']?.toString() ?? '',
       email: json['email'] as String?,
       fullName: json['fullName'] as String?,
@@ -34,13 +33,13 @@ class UserModel {
       country: json['country'] as String?,
       isActive: json['isActive'] as bool? ?? true,
       isProfileComplete: json['isProfileComplete'] as bool? ?? false,
+      hasPassword: json['hasPassword'] as bool? ?? true,
       createdAt: json['createdAt'] as String?,
       updatedAt: json['updatedAt'] as String?,
     );
   }
 
   final String id;
-  final String firebaseUid;
   final String phoneNumber;
   final String? email;
   final String? fullName;
@@ -53,13 +52,13 @@ class UserModel {
   final String? country;
   final bool isActive;
   final bool isProfileComplete;
+  final bool hasPassword;
   final String? createdAt;
   final String? updatedAt;
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'firebaseUid': firebaseUid,
       'phoneNumber': phoneNumber,
       'email': email,
       'fullName': fullName,
@@ -72,6 +71,7 @@ class UserModel {
       'country': country,
       'isActive': isActive,
       'isProfileComplete': isProfileComplete,
+      'hasPassword': hasPassword,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
@@ -79,7 +79,6 @@ class UserModel {
 
   UserModel copyWith({
     String? id,
-    String? firebaseUid,
     String? phoneNumber,
     String? email,
     String? fullName,
@@ -92,12 +91,12 @@ class UserModel {
     String? country,
     bool? isActive,
     bool? isProfileComplete,
+    bool? hasPassword,
     String? createdAt,
     String? updatedAt,
   }) {
     return UserModel(
       id: id ?? this.id,
-      firebaseUid: firebaseUid ?? this.firebaseUid,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       email: email ?? this.email,
       fullName: fullName ?? this.fullName,
@@ -110,6 +109,7 @@ class UserModel {
       country: country ?? this.country,
       isActive: isActive ?? this.isActive,
       isProfileComplete: isProfileComplete ?? this.isProfileComplete,
+      hasPassword: hasPassword ?? this.hasPassword,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -122,6 +122,7 @@ class UserModel {
     if (fullName != null && fullName!.trim().isNotEmpty) {
       return fullName!.trim();
     }
+    if (email != null && email!.trim().isNotEmpty) return email!.trim();
     if (phoneNumber.trim().isNotEmpty) return phoneNumber.trim();
     return 'Player';
   }

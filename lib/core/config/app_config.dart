@@ -8,6 +8,7 @@ class AppConfig {
     required this.debugMode,
     required this.bundleId,
   });
+
   final Environment environment;
   final String appName;
   final String baseUrl;

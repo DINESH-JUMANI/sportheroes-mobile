@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:sportheroes_mobile/core/constants/api_constants.dart';
@@ -170,34 +170,20 @@ class TeamsService {
     }
   }
 
-  Future<TeamModel> uploadLogo(
-    String teamId,
-    UploadTeamLogoRequest request,
-  ) async {
+  Future<TeamModel> uploadLogo(String teamId, File file) async {
     try {
+      final filename = file.path.split(RegExp(r'[\\/]')).last;
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path, filename: filename),
+      });
       final response = await _dio.put(
         ApiConstants.teamLogo(teamId),
-        data: request.toJson(),
+        data: formData,
       );
       return TeamModel.fromJson(
         ApiHelpers.extractObject(response.data, key: 'team'),
       );
     } on DioException catch (e) {
-      throw Exception(ApiHelpers.extractError(e));
-    }
-  }
-
-  Future<Uint8List?> fetchLogoBytes(String teamId) async {
-    try {
-      final response = await _dio.get<List<int>>(
-        ApiConstants.teamLogo(teamId),
-        options: Options(responseType: ResponseType.bytes),
-      );
-      final data = response.data;
-      if (data == null || data.isEmpty) return null;
-      return Uint8List.fromList(data);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
       throw Exception(ApiHelpers.extractError(e));
     }
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sportheroes_mobile/app.dart';
 import 'package:sportheroes_mobile/core/constants/app_colors.dart';
+import 'package:sportheroes_mobile/core/navigation/app_navigator.dart';
 import 'package:sportheroes_mobile/features/auth/providers/auth_provider.dart';
 import 'package:sportheroes_mobile/routes/app_routes.dart';
 import 'package:sportheroes_mobile/utils/app_snackbar.dart';
@@ -85,6 +87,13 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => Navigator.pushNamed(context, AppRoutes.editProfile),
           ),
           _SettingsTile(
+            icon: Icons.lock_outline_rounded,
+            title: 'Change password',
+            subtitle: 'Update your account password',
+            onTap: () =>
+                Navigator.pushNamed(context, AppRoutes.changePassword),
+          ),
+          _SettingsTile(
             icon: Icons.bar_chart_rounded,
             title: 'Stats',
             subtitle: 'Your match performance',
@@ -105,17 +114,15 @@ class SettingsScreen extends ConsumerWidget {
                   ? null
                   : () async {
                       await ref.read(authProvider.notifier).logout();
-                      if (!context.mounted) return;
                       final msg = ref.read(authProvider).logoutState.dataOrNull;
-                      AppSnackbar.success(
-                        context,
-                        msg ?? 'Logged out',
-                      );
-                      Navigator.pushNamedAndRemoveUntil(
-                        context,
-                        AppRoutes.login,
-                        (route) => false,
-                      );
+                      AppNavigator.resetToLogin();
+                      final rootContext = MyApp.navigatorKey.currentContext;
+                      if (rootContext != null && rootContext.mounted) {
+                        AppSnackbar.success(
+                          rootContext,
+                          msg ?? 'Logged out',
+                        );
+                      }
                     },
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,

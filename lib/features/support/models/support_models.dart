@@ -33,6 +33,7 @@ class SupportConcern {
 class SupportTicketImage {
   const SupportTicketImage({
     required this.id,
+    this.url,
     this.mimeType,
     this.sortOrder = 0,
   });
@@ -40,12 +41,14 @@ class SupportTicketImage {
   factory SupportTicketImage.fromJson(Map<String, dynamic> json) {
     return SupportTicketImage(
       id: json['id']?.toString() ?? '',
+      url: json['url'] as String? ?? json['imageUrl'] as String?,
       mimeType: json['mimeType'] as String?,
       sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
     );
   }
 
   final String id;
+  final String? url;
   final String? mimeType;
   final int sortOrder;
 }
@@ -119,27 +122,19 @@ class CreateSupportTicketRequest {
     required this.concernId,
     required this.description,
     this.otherConcernText,
-    this.images = const [],
+    this.imageUrls = const [],
   });
 
   final String concernId;
   final String description;
   final String? otherConcernText;
-  final List<({String imageBase64, String mimeType})> images;
+  final List<String> imageUrls;
 
   Map<String, dynamic> toJson() => {
         'concernId': concernId,
         'description': description,
         if (otherConcernText != null && otherConcernText!.trim().isNotEmpty)
           'otherConcernText': otherConcernText,
-        if (images.isNotEmpty)
-          'images': images
-              .map(
-                (i) => {
-                  'imageBase64': i.imageBase64,
-                  'mimeType': i.mimeType,
-                },
-              )
-              .toList(),
+        if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
       };
 }

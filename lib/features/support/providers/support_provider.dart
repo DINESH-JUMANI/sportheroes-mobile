@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportheroes_mobile/core/models/api_state.dart';
 import 'package:sportheroes_mobile/core/network/api_helpers.dart';
@@ -72,10 +74,24 @@ class SupportNotifier extends Notifier<SupportState> {
     }
   }
 
-  Future<SupportTicket?> createTicket(CreateSupportTicketRequest request) async {
+  Future<SupportTicket?> createTicket(
+    CreateSupportTicketRequest request, {
+    List<File> imageFiles = const [],
+  }) async {
     state = state.copyWith(actionState: const ApiLoading());
     try {
-      final result = await _service.createTicket(request);
+      final urls = <String>[];
+      for (final file in imageFiles) {
+        urls.add(await _service.uploadImage(file));
+      }
+      final result = await _service.createTicket(
+        CreateSupportTicketRequest(
+          concernId: request.concernId,
+          description: request.description,
+          otherConcernText: request.otherConcernText,
+          imageUrls: [...request.imageUrls, ...urls],
+        ),
+      );
       await loadMyTickets();
       state = state.copyWith(
         actionState: ApiSuccess(result.message),

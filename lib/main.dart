@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,9 +38,6 @@ Future<void> startApp({required Environment env}) async {
   LoggerUtils.logAppStart();
 
   await LocalStorageService.init();
-
-  // Native config from google-services.json / GoogleService-Info.plist.
-  await Firebase.initializeApp();
 
   runApp(const ProviderScope(child: MyApp()));
   _initNonCriticalServices();

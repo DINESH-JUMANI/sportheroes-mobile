@@ -25,22 +25,6 @@ class LocalStorageService {
   static const String _keyIsLoggedIn = 'isLoggedIn';
   static const String _keyUserToken = 'userToken';
   static const String _keyUserJson = 'userJson';
-  static const String _keyMatchScorerPrefix = 'match_scorer_';
-
-  /// User id of whoever started / controls scoring for [matchId].
-  String? getMatchScorer(String matchId) {
-    if (matchId.isEmpty) return null;
-    return _preferences?.getString('$_keyMatchScorerPrefix$matchId');
-  }
-
-  Future<bool> setMatchScorer(String matchId, String userId) async {
-    if (matchId.isEmpty || userId.isEmpty) return false;
-    return await _preferences?.setString(
-          '$_keyMatchScorerPrefix$matchId',
-          userId,
-        ) ??
-        false;
-  }
 
   bool get isOnboarded => _preferences?.getBool(_keyIsOnboarded) ?? false;
 

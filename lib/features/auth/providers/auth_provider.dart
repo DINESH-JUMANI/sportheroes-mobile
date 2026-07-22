@@ -1,94 +1,83 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportheroes_mobile/core/models/api_state.dart';
 import 'package:sportheroes_mobile/core/providers/providers.dart';
+import 'package:sportheroes_mobile/core/utils/image_picker_helper.dart';
 import 'package:sportheroes_mobile/features/auth/models/login_response.dart';
 import 'package:sportheroes_mobile/features/auth/models/user_model.dart';
 import 'package:sportheroes_mobile/features/auth/services/auth_service.dart';
-import 'package:sportheroes_mobile/features/auth/services/firebase_auth_service.dart';
 import 'package:sportheroes_mobile/utils/app_logger.dart';
-
-// ── Service providers ───────────────────────────────────────────────────────
-
-final firebaseAuthServiceProvider = Provider<FirebaseAuthService>((ref) {
-  return FirebaseAuthService();
-});
 
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(ref.watch(dioClientProvider));
 });
 
-// ── Auth session state ──────────────────────────────────────────────────────
+enum AuthStep { login, setPassword, profile, authenticated }
 
-enum AuthStep { phone, otp, profile, authenticated }
+enum LoginOutcome { success, passwordNotSet, failed }
+
+/// After identifier-only continue on the login screen.
+enum IdentifierCheckOutcome {
+  /// Account exists and has a password → show password field.
+  needsPassword,
+
+  /// Account exists but password not set → set-password screen.
+  needsSetPassword,
+
+  /// No account → register / sign-up screen.
+  notFound,
+
+  /// Network / unexpected error.
+  failed,
+}
 
 class AuthSessionState {
   const AuthSessionState({
-    this.step = AuthStep.phone,
-    this.phoneNumber,
-    this.verificationId,
-    this.resendToken,
+    this.step = AuthStep.login,
+    this.pendingEmail,
+    this.pendingPhone,
     this.user,
     this.isNewUser = false,
-    this.sendOtpState = const ApiInitial<bool>(),
-    this.verifyOtpState = const ApiInitial<bool>(),
+    this.authActionState = const ApiInitial<bool>(),
     this.profileState = const ApiInitial<UserModel>(),
     this.logoutState = const ApiInitial<String>(),
     this.lastActionMessage,
   });
 
   final AuthStep step;
-  final String? phoneNumber;
-  final String? verificationId;
-  final int? resendToken;
+  final String? pendingEmail;
+  final String? pendingPhone;
   final UserModel? user;
   final bool isNewUser;
-
-  /// Loading / success / error for sending OTP.
-  final ApiState<bool> sendOtpState;
-
-  /// Loading / success / error for verifying OTP + backend login.
-  final ApiState<bool> verifyOtpState;
-
-  /// Loading / success / error for profile update / fetch.
+  final ApiState<bool> authActionState;
   final ApiState<UserModel> profileState;
-
   final ApiState<String> logoutState;
   final String? lastActionMessage;
 
   bool get isBusy =>
-      sendOtpState.isLoading ||
-      verifyOtpState.isLoading ||
+      authActionState.isLoading ||
       profileState.isLoading ||
       logoutState.isLoading;
 
   AuthSessionState copyWith({
     AuthStep? step,
-    String? phoneNumber,
-    String? verificationId,
-    int? resendToken,
+    String? pendingEmail,
+    String? pendingPhone,
     UserModel? user,
     bool? isNewUser,
-    ApiState<bool>? sendOtpState,
-    ApiState<bool>? verifyOtpState,
+    ApiState<bool>? authActionState,
     ApiState<UserModel>? profileState,
     ApiState<String>? logoutState,
     String? lastActionMessage,
     bool clearUser = false,
-    bool clearVerification = false,
+    bool clearPending = false,
   }) {
     return AuthSessionState(
       step: step ?? this.step,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      verificationId: clearVerification
-          ? null
-          : (verificationId ?? this.verificationId),
-      resendToken: clearVerification
-          ? null
-          : (resendToken ?? this.resendToken),
+      pendingEmail: clearPending ? null : (pendingEmail ?? this.pendingEmail),
+      pendingPhone: clearPending ? null : (pendingPhone ?? this.pendingPhone),
       user: clearUser ? null : (user ?? this.user),
       isNewUser: isNewUser ?? this.isNewUser,
-      sendOtpState: sendOtpState ?? this.sendOtpState,
-      verifyOtpState: verifyOtpState ?? this.verifyOtpState,
+      authActionState: authActionState ?? this.authActionState,
       profileState: profileState ?? this.profileState,
       logoutState: logoutState ?? this.logoutState,
       lastActionMessage: lastActionMessage ?? this.lastActionMessage,
@@ -113,120 +102,205 @@ class AuthNotifier extends Notifier<AuthSessionState> {
     return const AuthSessionState();
   }
 
-  FirebaseAuthService get _firebase => ref.read(firebaseAuthServiceProvider);
   AuthService get _auth => ref.read(authServiceProvider);
 
   /// Formats local digits into E.164 with India default (`+91`).
   String formatPhone(String localDigits, {String countryCode = '+91'}) {
     final digits = localDigits.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return '';
+    if (localDigits.trim().startsWith('+')) {
+      return '+$digits';
+    }
     final code = countryCode.startsWith('+') ? countryCode : '+$countryCode';
     return '$code$digits';
   }
 
-  Future<bool> sendOtp(String phoneNumber) async {
+  /// Returns email if [raw] looks like email, otherwise formatted phone.
+  ({String? email, String? phone}) parseIdentifier(String raw) {
+    final value = raw.trim();
+    if (value.contains('@')) {
+      return (email: value, phone: null);
+    }
+    final phone = formatPhone(value);
+    return (email: null, phone: phone.isEmpty ? null : phone);
+  }
+
+  /// Step 1 of login: check whether the email/phone exists and has a password.
+  Future<IdentifierCheckOutcome> checkIdentifier(String identifier) async {
+    final parsed = parseIdentifier(identifier);
+    if ((parsed.email == null || parsed.email!.isEmpty) &&
+        (parsed.phone == null || parsed.phone!.isEmpty)) {
+      state = state.copyWith(
+        authActionState: const ApiError('Enter an email or phone number'),
+      );
+      return IdentifierCheckOutcome.failed;
+    }
+
     state = state.copyWith(
-      sendOtpState: const ApiLoading<bool>(),
-      phoneNumber: phoneNumber,
+      authActionState: const ApiLoading<bool>(),
+      pendingEmail: parsed.email,
+      pendingPhone: parsed.phone,
     );
 
     try {
-      final result = await _firebase.sendOtp(
-        phoneNumber: phoneNumber,
-        forceResendingToken: state.resendToken,
+      final result = await _auth.checkAccount(
+        email: parsed.email,
+        phoneNumber: parsed.phone,
       );
 
-      switch (result) {
-        case PhoneCodeSent(:final verificationId, :final resendToken):
-          state = state.copyWith(
-            step: AuthStep.otp,
-            verificationId: verificationId,
-            resendToken: resendToken,
-            sendOtpState: const ApiSuccess(true),
-            verifyOtpState: const ApiInitial(),
-          );
-          return true;
-
-        case PhoneAutoVerified(:final idToken):
-          if (idToken == null || idToken.isEmpty) {
-            state = state.copyWith(
-              sendOtpState: const ApiError(
-                'Auto-verification succeeded but no ID token was returned',
-              ),
-            );
-            return false;
-          }
-          return _exchangeIdToken(idToken);
-
-        case PhoneVerificationFailed(:final message):
-          state = state.copyWith(sendOtpState: ApiError(message));
-          return false;
+      if (!result.exists) {
+        state = state.copyWith(authActionState: const ApiSuccess(true));
+        return IdentifierCheckOutcome.notFound;
       }
+      if (!result.hasPassword) {
+        state = state.copyWith(
+          step: AuthStep.setPassword,
+          authActionState: const ApiSuccess(true),
+        );
+        return IdentifierCheckOutcome.needsSetPassword;
+      }
+      state = state.copyWith(authActionState: const ApiSuccess(true));
+      return IdentifierCheckOutcome.needsPassword;
+    } on AuthApiException catch (e) {
+      AppLogger.error('checkIdentifier failed: ${e.message} (${e.code})');
+      if (e.isPasswordNotSet) {
+        state = state.copyWith(
+          step: AuthStep.setPassword,
+          authActionState: const ApiSuccess(true),
+        );
+        return IdentifierCheckOutcome.needsSetPassword;
+      }
+      if (e.isUserNotFound) {
+        state = state.copyWith(authActionState: const ApiSuccess(true));
+        return IdentifierCheckOutcome.notFound;
+      }
+      state = state.copyWith(authActionState: ApiError(e.message));
+      return IdentifierCheckOutcome.failed;
     } catch (e) {
-      AppLogger.error('sendOtp failed: $e');
-      state = state.copyWith(sendOtpState: ApiError(e.toString()));
-      return false;
+      AppLogger.error('checkIdentifier failed: $e');
+      state = state.copyWith(authActionState: ApiError(_cleanError(e)));
+      return IdentifierCheckOutcome.failed;
     }
   }
 
-  Future<bool> resendOtp() async {
-    final phone = state.phoneNumber;
-    if (phone == null) return false;
-    return sendOtp(phone);
-  }
-
-  Future<bool> verifyOtp(String smsCode) async {
-    final verificationId = state.verificationId;
-    if (verificationId == null) {
-      state = state.copyWith(
-        verifyOtpState: const ApiError(
-          'Missing verification ID. Please request OTP again.',
-        ),
-      );
-      return false;
-    }
-
-    state = state.copyWith(verifyOtpState: const ApiLoading<bool>());
+  Future<LoginOutcome> login({
+    required String identifier,
+    required String password,
+  }) async {
+    final parsed = parseIdentifier(identifier);
+    state = state.copyWith(
+      authActionState: const ApiLoading<bool>(),
+      pendingEmail: parsed.email,
+      pendingPhone: parsed.phone,
+    );
 
     try {
-      final idToken = await _firebase.verifyOtp(
-        verificationId: verificationId,
-        smsCode: smsCode,
+      final login = await _auth.login(
+        email: parsed.email,
+        phoneNumber: parsed.phone,
+        password: password,
       );
-      return _exchangeIdToken(idToken);
+      await _applyLogin(login);
+      return LoginOutcome.success;
+    } on AuthApiException catch (e) {
+      AppLogger.error('login failed: ${e.message} (${e.code})');
+      if (e.isPasswordNotSet) {
+        state = state.copyWith(
+          step: AuthStep.setPassword,
+          authActionState: ApiError(e.message),
+        );
+        return LoginOutcome.passwordNotSet;
+      }
+      state = state.copyWith(authActionState: ApiError(e.message));
+      return LoginOutcome.failed;
     } catch (e) {
-      AppLogger.error('verifyOtp failed: $e');
-      state = state.copyWith(verifyOtpState: ApiError(_cleanError(e)));
+      AppLogger.error('login failed: $e');
+      state = state.copyWith(authActionState: ApiError(_cleanError(e)));
+      return LoginOutcome.failed;
+    }
+  }
+
+  Future<bool> register({
+    String? email,
+    String? phoneNumber,
+    required String password,
+    required String fullName,
+  }) async {
+    state = state.copyWith(authActionState: const ApiLoading<bool>());
+    try {
+      final login = await _auth.register(
+        email: email,
+        phoneNumber: phoneNumber,
+        password: password,
+        fullName: fullName,
+      );
+      await _applyLogin(login);
+      return true;
+    } catch (e) {
+      AppLogger.error('register failed: $e');
+      state = state.copyWith(authActionState: ApiError(_cleanError(e)));
       return false;
     }
   }
 
-  Future<bool> _exchangeIdToken(String idToken) async {
-    state = state.copyWith(verifyOtpState: const ApiLoading<bool>());
-
+  Future<bool> setPassword({
+    required String password,
+    String? fullName,
+  }) async {
+    state = state.copyWith(authActionState: const ApiLoading<bool>());
     try {
-      final login = await _auth.loginWithIdToken(idToken);
-      final storage = ref.read(localStorageServiceProvider);
-      await storage.saveSession(
-        accessToken: login.tokens.accessToken,
-        user: login.user.toJson(),
+      final login = await _auth.setPassword(
+        email: state.pendingEmail,
+        phoneNumber: state.pendingPhone,
+        password: password,
+        fullName: fullName,
       );
+      await _applyLogin(login);
+      return true;
+    } catch (e) {
+      AppLogger.error('setPassword failed: $e');
+      state = state.copyWith(authActionState: ApiError(_cleanError(e)));
+      return false;
+    }
+  }
 
-      final needsProfile =
-          login.isNewUser || !login.user.isProfileComplete;
-
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(authActionState: const ApiLoading<bool>());
+    try {
+      final message = await _auth.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
       state = state.copyWith(
-        user: login.user,
-        isNewUser: login.isNewUser,
-        step: needsProfile ? AuthStep.profile : AuthStep.authenticated,
-        verifyOtpState: const ApiSuccess(true),
-        sendOtpState: const ApiInitial(),
+        authActionState: const ApiSuccess(true),
+        lastActionMessage: message,
       );
       return true;
     } catch (e) {
-      AppLogger.error('Backend login failed: $e');
-      state = state.copyWith(verifyOtpState: ApiError(_cleanError(e)));
+      AppLogger.error('changePassword failed: $e');
+      state = state.copyWith(authActionState: ApiError(_cleanError(e)));
       return false;
     }
+  }
+
+  Future<void> _applyLogin(LoginResponse login) async {
+    final storage = ref.read(localStorageServiceProvider);
+    await storage.saveSession(
+      accessToken: login.tokens.accessToken,
+      user: login.user.toJson(),
+    );
+
+    final needsProfile = login.isNewUser || !login.user.isProfileComplete;
+    state = state.copyWith(
+      user: login.user,
+      isNewUser: login.isNewUser,
+      step: needsProfile ? AuthStep.profile : AuthStep.authenticated,
+      authActionState: const ApiSuccess(true),
+      clearPending: true,
+    );
   }
 
   Future<bool> completeProfile(UpdateProfileRequest request) async {
@@ -251,6 +325,25 @@ class AuthNotifier extends Notifier<AuthSessionState> {
     }
   }
 
+  Future<bool> uploadAvatar(PickedImageFile image) async {
+    state = state.copyWith(profileState: const ApiLoading<UserModel>());
+    try {
+      final result = await _auth.uploadAvatar(image);
+      final storage = ref.read(localStorageServiceProvider);
+      await storage.setUserJson(result.data.toJson());
+      state = state.copyWith(
+        user: result.data,
+        profileState: ApiSuccess(result.data),
+        lastActionMessage: result.message,
+      );
+      return true;
+    } catch (e) {
+      AppLogger.error('uploadAvatar failed: $e');
+      state = state.copyWith(profileState: ApiError(_cleanError(e)));
+      return false;
+    }
+  }
+
   Future<void> refreshMe() async {
     state = state.copyWith(profileState: const ApiLoading<UserModel>());
     try {
@@ -269,8 +362,6 @@ class AuthNotifier extends Notifier<AuthSessionState> {
     }
   }
 
-  /// Hits `/v1/player-profiles/me` to verify the JWT.
-  /// Returns `false` and clears the session when the token is invalid/expired.
   Future<bool> validateSession() async {
     final storage = ref.read(localStorageServiceProvider);
     if (!storage.isLoggedIn) return false;
@@ -283,12 +374,9 @@ class AuthNotifier extends Notifier<AuthSessionState> {
       }
       try {
         await refreshMe();
-      } catch (_) {
-        // Profiles ok but /me failed — still treat as signed in.
-      }
+      } catch (_) {}
       return true;
     } catch (_) {
-      // Network / unexpected errors: keep local session.
       return true;
     }
   }
@@ -299,24 +387,16 @@ class AuthNotifier extends Notifier<AuthSessionState> {
     try {
       message = await _auth.logout();
     } finally {
-      await _firebase.signOut();
       await ref.read(localStorageServiceProvider).clearSession();
       state = AuthSessionState(logoutState: ApiSuccess(message));
     }
   }
 
-  void resetToPhone() {
-    state = AuthSessionState(phoneNumber: state.phoneNumber);
-  }
-
   void clearErrors() {
     state = state.copyWith(
-      sendOtpState: state.sendOtpState.isError
+      authActionState: state.authActionState.isError
           ? const ApiInitial<bool>()
-          : state.sendOtpState,
-      verifyOtpState: state.verifyOtpState.isError
-          ? const ApiInitial<bool>()
-          : state.verifyOtpState,
+          : state.authActionState,
       profileState: state.profileState.isError
           ? const ApiInitial<UserModel>()
           : state.profileState,
@@ -324,6 +404,7 @@ class AuthNotifier extends Notifier<AuthSessionState> {
   }
 
   String _cleanError(Object e) {
+    if (e is AuthApiException) return e.message;
     final text = e.toString();
     if (text.startsWith('Exception: ')) {
       return text.substring('Exception: '.length);

@@ -122,7 +122,9 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen> {
                     shortName: team.shortName,
                     captain: team.captainName,
                     members: team.memberCount,
-                    hasLogo: team.hasLogo,
+                    logoUrl: team.logoUrl,
+                    hasLogo: team.hasLogo ||
+                        (team.logoUrl != null && team.logoUrl!.isNotEmpty),
                     onTap: () async {
                       await Navigator.pushNamed(
                         context,

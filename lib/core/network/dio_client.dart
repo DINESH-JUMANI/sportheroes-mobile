@@ -48,6 +48,9 @@ class DioClient {
           } catch (_) {
             // LocalStorage may not be ready during early init.
           }
+          if (options.data is FormData) {
+            options.headers.remove('Content-Type');
+          }
           handler.next(options);
         },
       ),

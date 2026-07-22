@@ -95,11 +95,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           children: [
             Image.asset(
               AppAssets.sportHeroesLogo,
-              width: 140,
-              height: 140,
+              width: 300,
+              height: 300,
               fit: BoxFit.contain,
             ),
-            const SizedBox(height: 20),
             const Text(
               'SportHeroes',
               style: TextStyle(

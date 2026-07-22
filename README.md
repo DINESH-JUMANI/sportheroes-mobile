@@ -1,6 +1,6 @@
 # SportHeroes Mobile
 
-Flutter client for SportHeroes — phone auth (Firebase + backend JWT), matches, teams, tournaments, stats, and leaderboards.
+Flutter client for SportHeroes — email/phone + password auth (backend JWT), matches, teams, tournaments, stats, and leaderboards.
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ Flutter client for SportHeroes — phone auth (Firebase + backend JWT), matches,
 flutter pub get
 ```
 
-Firebase is configured via `android/app/google-services.json`. Enable **Phone** sign-in in the Firebase Console before testing login.
+Auth is **email or phone + password** against the SportHeroes API (no Firebase / Supabase Auth). See `lib/features/auth/AUTH_FLOW.md`.
 
 ---
 
@@ -22,7 +22,7 @@ Firebase is configured via `android/app/google-services.json`. Enable **Phone** 
 | Environment | Entrypoint | API base URL |
 | --- | --- | --- |
 | **Local** | `lib/main_local.dart` | `http://localhost:3000/api` |
-| **Production** | `lib/main_production.dart` | `https://sport-heroes-api.mydatacrate.com/api` |
+| **Production** | `lib/main_production.dart` | `https://sportheroes-backend.vercel.app/api` |
 
 Config lives in `lib/core/config/app_config.dart`.
 
@@ -134,7 +134,7 @@ lib/
   main_production.dart      # Production entrypoint
   core/                     # Config, network, providers, mock data
   features/
-    auth/                   # Phone login (Firebase + backend)
+    auth/                   # Email/phone + password login
     home/, matches/, teams/, tournaments/, leaderboard/, profile/
   routes/
 ```

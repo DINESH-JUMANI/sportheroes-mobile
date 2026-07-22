@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -26,7 +25,7 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
   final _picker = ImagePicker();
 
   SupportConcern? _selectedConcern;
-  final List<({String base64, String mimeType, String path})> _images = [];
+  final List<File> _images = [];
 
   @override
   void initState() {
@@ -54,26 +53,14 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
 
     for (final file in files) {
       if (_images.length >= 5) break;
-      final bytes = await File(file.path).readAsBytes();
-      if (bytes.lengthInBytes > 5 * 1024 * 1024) {
+      final local = File(file.path);
+      final length = await local.length();
+      if (length > 5 * 1024 * 1024) {
         if (!mounted) return;
         AppSnackbar.warning(context, 'Each image must be under 5MB');
         continue;
       }
-      final mime = file.path.toLowerCase().endsWith('.png')
-          ? 'image/png'
-          : file.path.toLowerCase().endsWith('.webp')
-              ? 'image/webp'
-              : file.path.toLowerCase().endsWith('.gif')
-                  ? 'image/gif'
-                  : 'image/jpeg';
-      setState(() {
-        _images.add((
-          base64: base64Encode(bytes),
-          mimeType: mime,
-          path: file.path,
-        ));
-      });
+      setState(() => _images.add(local));
     }
   }
 
@@ -97,15 +84,8 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
               description: _descriptionController.text.trim(),
               otherConcernText:
                   concern.isOther ? _otherController.text.trim() : null,
-              images: _images
-                  .map(
-                    (i) => (
-                      imageBase64: i.base64,
-                      mimeType: i.mimeType,
-                    ),
-                  )
-                  .toList(),
             ),
+            imageFiles: List<File>.from(_images),
           ),
       message: 'Submitting…',
     );
@@ -267,7 +247,7 @@ class _HelpSupportScreenState extends ConsumerState<HelpSupportScreen> {
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
                                     child: Image.file(
-                                      File(img.path),
+                                      img,
                                       width: 84,
                                       height: 84,
                                       fit: BoxFit.cover,

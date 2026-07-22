@@ -7,8 +7,14 @@ class ApiConstants {
 
   // ── Auth ────────────────────────────────────────────────────────────────
   static const String authLogin = '/v1/auth/login';
+  static const String authRegister = '/v1/auth/register';
+  static const String authCheck = '/v1/auth/check';
+  static const String authSetPassword = '/v1/auth/set-password';
+  static const String authResetPassword = '/v1/auth/reset-password';
+  static const String authChangePassword = '/v1/auth/change-password';
   static const String authMe = '/v1/auth/me';
   static const String authProfile = '/v1/auth/profile';
+  static const String authAvatar = '/v1/auth/avatar';
   static const String authLogout = '/v1/auth/logout';
 
   // ── Search ──────────────────────────────────────────────────────────────
@@ -80,6 +86,7 @@ class ApiConstants {
       '/v1/support/tickets/by-number/$ticketNumber';
   static String supportTicketStatus(String id) =>
       '/v1/support/tickets/$id/status';
+  static const String supportUploadImage = '/v1/support/upload-image';
   static String supportTicketImage(String ticketId, String imageId) =>
       '/v1/support/tickets/$ticketId/images/$imageId';
 

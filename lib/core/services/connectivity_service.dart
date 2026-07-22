@@ -37,7 +37,7 @@ class ConnectivityService {
   Future<void> _initConnectivity() async {
     try {
       final results = await _connectivity.checkConnectivity();
-      _updateConnectionStatus(results);
+      _updateConnectionStatus(results, emitInitial: true);
     } catch (e) {
       if (kDebugMode) {
         print('Error checking connectivity: $e');
@@ -47,7 +47,10 @@ class ConnectivityService {
     }
   }
 
-  void _updateConnectionStatus(List<ConnectivityResult> results) {
+  void _updateConnectionStatus(
+    List<ConnectivityResult> results, {
+    bool emitInitial = false,
+  }) {
     final wasConnected = _isConnected;
 
     // Check if any result indicates connection
@@ -58,8 +61,7 @@ class ConnectivityService {
           result == ConnectivityResult.ethernet,
     );
 
-    // Only emit if status changed
-    if (wasConnected != _isConnected) {
+    if (emitInitial || wasConnected != _isConnected) {
       _connectionStatusController.add(_isConnected);
     }
   }

@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,8 +22,7 @@ class _CreateTeamScreenState extends ConsumerState<CreateTeamScreen> {
   final _nameController = TextEditingController();
   final _shortNameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  String? _logoBase64;
-  String? _logoMimeType;
+  File? _logoFile;
 
   @override
   void dispose() {
@@ -34,12 +33,14 @@ class _CreateTeamScreenState extends ConsumerState<CreateTeamScreen> {
   }
 
   Future<void> _pickLogo() async {
-    final picked = await ImagePickerHelper.pickLogo();
-    if (picked == null) return;
-    setState(() {
-      _logoBase64 = picked.base64;
-      _logoMimeType = picked.mimeType;
-    });
+    try {
+      final picked = await ImagePickerHelper.pickImage();
+      if (picked == null) return;
+      setState(() => _logoFile = picked.file);
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbar.error(context, e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   Future<void> _submit() async {
@@ -56,9 +57,8 @@ class _CreateTeamScreenState extends ConsumerState<CreateTeamScreen> {
               description: _descriptionController.text.trim().isEmpty
                   ? null
                   : _descriptionController.text.trim(),
-              logoBase64: _logoBase64,
-              logoMimeType: _logoMimeType,
             ),
+            logoFile: _logoFile,
           ),
       message: 'Creating team…',
     );
@@ -93,10 +93,9 @@ class _CreateTeamScreenState extends ConsumerState<CreateTeamScreen> {
                     CircleAvatar(
                       radius: 48,
                       backgroundColor: AppColors.primary50,
-                      backgroundImage: _logoBase64 != null
-                          ? MemoryImage(base64Decode(_logoBase64!))
-                          : null,
-                      child: _logoBase64 == null
+                      backgroundImage:
+                          _logoFile != null ? FileImage(_logoFile!) : null,
+                      child: _logoFile == null
                           ? const Icon(
                               Icons.add_a_photo_rounded,
                               color: AppColors.primary,
@@ -124,68 +123,41 @@ class _CreateTeamScreenState extends ConsumerState<CreateTeamScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             const Center(
               child: Text(
-                'Add a team logo (optional)',
+                'Optional team logo',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
             TextFormField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
                 labelText: 'Team name',
-                hintText: 'e.g. Mumbai Smashers',
                 prefixIcon: Icon(Icons.groups_rounded),
               ),
-              validator: (v) => Validators.required(v, fieldName: 'Name'),
+              validator: (v) => Validators.required(v, fieldName: 'Team name'),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _shortNameController,
               textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
                 labelText: 'Short name (optional)',
-                hintText: 'e.g. MSM',
-                prefixIcon: Icon(Icons.tag_rounded),
+                prefixIcon: Icon(Icons.short_text_rounded),
               ),
-              maxLength: 10,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _descriptionController,
+              maxLines: 3,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
                 labelText: 'Description (optional)',
                 alignLabelWithHint: true,
                 prefixIcon: Icon(Icons.notes_rounded),
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.primary25,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, color: AppColors.primary),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'You’ll be the team admin. Add members later with their phone numbers.',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
             const SizedBox(height: 28),
@@ -193,7 +165,7 @@ class _CreateTeamScreenState extends ConsumerState<CreateTeamScreen> {
               height: 52,
               child: FilledButton(
                 onPressed: _submit,
-                child: const Text('Create Team'),
+                child: const Text('Create team'),
               ),
             ),
           ],

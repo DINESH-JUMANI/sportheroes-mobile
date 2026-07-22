@@ -139,27 +139,31 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
   }
 
   Future<void> _uploadLogo() async {
-    final picked = await ImagePickerHelper.pickLogo();
-    if (picked == null || !mounted) return;
+    try {
+      final picked = await ImagePickerHelper.pickImage();
+      if (picked == null || !mounted) return;
 
-    final ok = await AppLoader.during(
-      context,
-      () => ref.read(teamsProvider.notifier).uploadLogo(
-            widget.teamId,
-            UploadTeamLogoRequest(
-              logoBase64: picked.base64,
-              logoMimeType: picked.mimeType,
+      final ok = await AppLoader.during(
+        context,
+        () => ref.read(teamsProvider.notifier).uploadLogo(
+              widget.teamId,
+              picked.file,
             ),
-          ),
-      message: 'Uploading logo…',
-    );
-    if (!mounted) return;
-    if (ok) {
-      ref.invalidate(teamLogoProvider(widget.teamId));
-      AppSnackbar.success(context, ref.read(teamsProvider).actionState.dataOrNull ?? 'Logo updated');
-    } else {
-      final err = ref.read(teamsProvider).actionState.errorOrNull;
-      if (err != null) AppSnackbar.error(context, err);
+        message: 'Uploading logo…',
+      );
+      if (!mounted) return;
+      if (ok) {
+        AppSnackbar.success(
+          context,
+          ref.read(teamsProvider).actionState.dataOrNull ?? 'Logo updated',
+        );
+      } else {
+        final err = ref.read(teamsProvider).actionState.errorOrNull;
+        if (err != null) AppSnackbar.error(context, err);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackbar.error(context, e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -343,9 +347,11 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                     child: Column(
                       children: [
                         TeamLogoAvatar(
-                          teamId: team.id,
                           name: team.name,
-                          hasLogo: team.hasLogo,
+                          logoUrl: team.logoUrl,
+                          hasLogo: team.hasLogo ||
+                              (team.logoUrl != null &&
+                                  team.logoUrl!.isNotEmpty),
                           radius: 44,
                         ),
                         const SizedBox(height: 14),

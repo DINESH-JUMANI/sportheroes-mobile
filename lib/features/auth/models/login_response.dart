@@ -30,9 +30,6 @@ class UpdateProfileRequest {
     this.fullName,
     this.displayName,
     this.email,
-    this.profilePictureUrl,
-    this.profilePictureBase64,
-    this.profilePictureMimeType,
     this.dateOfBirth,
     this.gender,
     this.city,
@@ -43,9 +40,6 @@ class UpdateProfileRequest {
   final String? fullName;
   final String? displayName;
   final String? email;
-  final String? profilePictureUrl;
-  final String? profilePictureBase64;
-  final String? profilePictureMimeType;
   final String? dateOfBirth;
   final String? gender;
   final String? city;
@@ -57,11 +51,6 @@ class UpdateProfileRequest {
       if (fullName != null) 'fullName': fullName,
       if (displayName != null) 'displayName': displayName,
       if (email != null) 'email': email,
-      if (profilePictureUrl != null) 'profilePictureUrl': profilePictureUrl,
-      if (profilePictureBase64 != null)
-        'profilePictureBase64': profilePictureBase64,
-      if (profilePictureMimeType != null)
-        'profilePictureMimeType': profilePictureMimeType,
       if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
       if (gender != null) 'gender': gender,
       if (city != null) 'city': city,

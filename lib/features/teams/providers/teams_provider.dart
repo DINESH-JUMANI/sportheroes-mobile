@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportheroes_mobile/core/models/api_state.dart';
 import 'package:sportheroes_mobile/core/network/api_helpers.dart';
@@ -65,13 +67,20 @@ class TeamsNotifier extends Notifier<TeamsState> {
     }
   }
 
-  Future<TeamModel?> createTeam(CreateTeamRequest request) async {
+  Future<TeamModel?> createTeam(
+    CreateTeamRequest request, {
+    File? logoFile,
+  }) async {
     state = state.copyWith(actionState: const ApiLoading());
     try {
       final result = await _service.createTeam(request);
+      var team = result.data;
+      if (logoFile != null) {
+        team = await _service.uploadLogo(team.id, logoFile);
+      }
       await loadTeams();
       state = state.copyWith(actionState: ApiSuccess(result.message));
-      return result.data;
+      return team;
     } catch (e) {
       state = state.copyWith(actionState: ApiError(ApiHelpers.cleanError(e)));
       return null;
@@ -168,13 +177,10 @@ class TeamsNotifier extends Notifier<TeamsState> {
     }
   }
 
-  Future<bool> uploadLogo(
-    String teamId,
-    UploadTeamLogoRequest request,
-  ) async {
+  Future<bool> uploadLogo(String teamId, File file) async {
     state = state.copyWith(actionState: const ApiLoading());
     try {
-      final team = await _service.uploadLogo(teamId, request);
+      final team = await _service.uploadLogo(teamId, file);
       state = state.copyWith(
         actionState: ApiSuccess('Done'),
         detailState: ApiSuccess(team),
@@ -190,8 +196,3 @@ class TeamsNotifier extends Notifier<TeamsState> {
 final teamsProvider = NotifierProvider<TeamsNotifier, TeamsState>(
   TeamsNotifier.new,
 );
-
-final teamLogoProvider =
-    FutureProvider.autoDispose.family<List<int>?, String>((ref, teamId) async {
-  return ref.read(teamsServiceProvider).fetchLogoBytes(teamId);
-});

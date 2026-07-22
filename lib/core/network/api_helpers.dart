@@ -94,6 +94,21 @@ class ApiHelpers {
     return e.message ?? 'Something went wrong. Please try again.';
   }
 
+  /// Returns API `error.code` when present (e.g. `NOT_MATCH_SCORER`).
+  static String? extractErrorCode(DioException e) {
+    final data = e.response?.data;
+    if (data is Map) {
+      final error = data['error'];
+      if (error is Map && error['code'] is String) {
+        return error['code'] as String;
+      }
+    }
+    return null;
+  }
+
+  static bool isNotMatchScorer(DioException e) =>
+      extractErrorCode(e) == 'NOT_MATCH_SCORER';
+
   static String cleanError(Object e) {
     final text = e.toString();
     if (text.startsWith('Exception: ')) {

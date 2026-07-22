@@ -146,22 +146,16 @@ class CreateTeamRequest {
     required this.name,
     this.shortName,
     this.description,
-    this.logoBase64,
-    this.logoMimeType,
   });
 
   final String name;
   final String? shortName;
   final String? description;
-  final String? logoBase64;
-  final String? logoMimeType;
 
   Map<String, dynamic> toJson() => {
         'name': name,
         if (shortName != null) 'shortName': shortName,
         if (description != null) 'description': description,
-        if (logoBase64 != null) 'logoBase64': logoBase64,
-        if (logoMimeType != null) 'logoMimeType': logoMimeType,
       };
 }
 
@@ -170,28 +164,17 @@ class UpdateTeamRequest {
     this.name,
     this.shortName,
     this.description,
-    this.logoBase64,
-    this.logoMimeType,
-    this.removeLogo = false,
   });
 
   final String? name;
   final String? shortName;
   final String? description;
-  final String? logoBase64;
-  final String? logoMimeType;
-  final bool removeLogo;
 
   Map<String, dynamic> toJson() {
-    if (removeLogo) {
-      return {'logoBase64': null};
-    }
     return {
       if (name != null) 'name': name,
       if (shortName != null) 'shortName': shortName,
       if (description != null) 'description': description,
-      if (logoBase64 != null) 'logoBase64': logoBase64,
-      if (logoMimeType != null) 'logoMimeType': logoMimeType,
     };
   }
 }
@@ -240,17 +223,3 @@ class LookupUserResult {
   final UserSummary? user;
 }
 
-class UploadTeamLogoRequest {
-  const UploadTeamLogoRequest({
-    required this.logoBase64,
-    required this.logoMimeType,
-  });
-
-  final String logoBase64;
-  final String logoMimeType;
-
-  Map<String, dynamic> toJson() => {
-        'logoBase64': logoBase64,
-        'logoMimeType': logoMimeType,
-      };
-}

@@ -183,20 +183,6 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
     }
   }
 
-  String? _timelineScorerId(List<MatchTimelinePoint> timeline) {
-    final active = timeline
-        .where(
-          (p) =>
-              !p.isUndone &&
-              p.recordedBy != null &&
-              p.recordedBy!.trim().isNotEmpty,
-        )
-        .toList();
-    if (active.isEmpty) return null;
-    active.sort((a, b) => a.pointNumber.compareTo(b.pointNumber));
-    return active.first.recordedBy;
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(matchesProvider);
@@ -207,10 +193,7 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
     final timeline = state.timelineState.dataOrNull ?? const [];
     final timelineLoading = state.timelineState.isLoading;
     final userId = ref.watch(authProvider).user?.id;
-    final timelineScorerId = _timelineScorerId(timeline);
-    final canManage =
-        match?.canManageScoring(userId, timelineScorerId: timelineScorerId) ??
-        false;
+    final canManage = match?.canManageScoring(userId) ?? false;
     final isSpectator = match != null && match.isLive && !canManage;
 
     return Scaffold(
@@ -340,13 +323,12 @@ class _MatchDetailScreenState extends ConsumerState<MatchDetailScreen> {
                   const SizedBox(height: 12),
                   if (match.status == 'scheduled')
                     ElevatedButton(
-                      onPressed: busy || userId == null || userId.isEmpty
+                      onPressed: busy
                           ? null
                           : () => _run(
-                              () => ref.read(matchesProvider.notifier).start(
-                                    widget.matchId,
-                                    startedByUserId: userId,
-                                  ),
+                              () => ref
+                                  .read(matchesProvider.notifier)
+                                  .start(widget.matchId),
                             ),
                       child: const Text('Start Match'),
                     ),

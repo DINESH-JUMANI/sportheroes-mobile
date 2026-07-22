@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:sportheroes_mobile/core/constants/api_constants.dart';
 import 'package:sportheroes_mobile/core/models/api_result.dart';
@@ -30,6 +32,28 @@ class SupportService {
           fallback: 'Concerns fetched',
         ),
       );
+    } on DioException catch (e) {
+      throw Exception(ApiHelpers.extractError(e));
+    }
+  }
+
+  /// Uploads a support image; returns public Storage URL.
+  Future<String> uploadImage(File file) async {
+    try {
+      final filename = file.path.split(RegExp(r'[\\/]')).last;
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path, filename: filename),
+      });
+      final response = await _dio.post(
+        ApiConstants.supportUploadImage,
+        data: formData,
+      );
+      final data = ApiHelpers.extractData(response.data);
+      final url = data['url']?.toString();
+      if (url == null || url.isEmpty) {
+        throw Exception('Upload succeeded but no image URL was returned');
+      }
+      return url;
     } on DioException catch (e) {
       throw Exception(ApiHelpers.extractError(e));
     }
