@@ -225,6 +225,7 @@ class AuthNotifier extends Notifier<AuthSessionState> {
     String? phoneNumber,
     required String password,
     required String fullName,
+    UpdateProfileRequest? profileDetails,
   }) async {
     state = state.copyWith(authActionState: const ApiLoading<bool>());
     try {
@@ -235,6 +236,19 @@ class AuthNotifier extends Notifier<AuthSessionState> {
         fullName: fullName,
       );
       await _applyLogin(login);
+
+      if (profileDetails != null) {
+        final result = await _auth.updateProfile(profileDetails);
+        final storage = ref.read(localStorageServiceProvider);
+        await storage.setUserJson(result.data.toJson());
+        state = state.copyWith(
+          user: result.data,
+          step: AuthStep.authenticated,
+          authActionState: const ApiSuccess(true),
+          lastActionMessage: result.message,
+        );
+      }
+
       return true;
     } catch (e) {
       AppLogger.error('register failed: $e');

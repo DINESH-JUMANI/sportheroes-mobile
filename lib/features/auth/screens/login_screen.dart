@@ -148,7 +148,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 36),
                 TextFormField(
                   controller: _identifierController,
-                  enabled: !isPasswordStep,
+                  readOnly: isPasswordStep,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: isPasswordStep
                       ? TextInputAction.done

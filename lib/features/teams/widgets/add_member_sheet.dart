@@ -103,17 +103,24 @@ class _AddMemberSheetState extends ConsumerState<AddMemberSheet> {
   Widget build(BuildContext context) {
     final lookupState = ref.watch(teamsProvider).lookupState;
 
-    return Padding(
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
         top: 8,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
           const Text(
             'Add team member',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
@@ -206,15 +213,17 @@ class _AddMemberSheetState extends ConsumerState<AddMemberSheet> {
               ),
             ),
           ],
-          const SizedBox(height: 18),
-          SizedBox(
-            height: 48,
-            child: FilledButton(
-              onPressed: _add,
-              child: const Text('Add to team'),
-            ),
+              const SizedBox(height: 18),
+              SizedBox(
+                height: 48,
+                child: FilledButton(
+                  onPressed: _add,
+                  child: const Text('Add to team'),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

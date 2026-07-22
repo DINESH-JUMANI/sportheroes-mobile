@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportheroes_mobile/core/constants/app_colors.dart';
+import 'package:sportheroes_mobile/features/auth/models/login_response.dart';
 import 'package:sportheroes_mobile/features/auth/providers/auth_provider.dart';
 import 'package:sportheroes_mobile/features/auth/widgets/auth_header.dart';
 import 'package:sportheroes_mobile/features/auth/widgets/auth_primary_button.dart';
@@ -18,8 +19,11 @@ class RegisterScreen extends ConsumerStatefulWidget {
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
+  final _displayNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _countryController = TextEditingController(text: 'India');
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _obscure = true;
@@ -53,8 +57,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   void dispose() {
     _fullNameController.dispose();
+    _displayNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _cityController.dispose();
+    _countryController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
@@ -72,24 +79,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       phoneNumber: notifier.formatPhone(phoneRaw),
       password: _passwordController.text,
       fullName: _fullNameController.text.trim(),
+      profileDetails: UpdateProfileRequest(
+        fullName: _fullNameController.text.trim(),
+        displayName: _displayNameController.text.trim(),
+        city: _cityController.text.trim(),
+        country: _countryController.text.trim(),
+      ),
     );
 
     if (!mounted) return;
     if (ok) {
-      final step = ref.read(authProvider).step;
-      if (step == AuthStep.profile) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.completeProfile,
-          (route) => false,
-        );
-      } else {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.home,
-          (route) => false,
-        );
-      }
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.home,
+        (route) => false,
+      );
     } else {
       final message = ref.read(authProvider).authActionState.errorOrNull;
       if (message != null) AppSnackbar.error(context, message);
@@ -118,7 +122,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const AuthHeader(
                   title: 'Create account',
                   subtitle:
-                      'Register with your phone number and password. Email is optional.',
+                      'Set up your profile, phone number, and password to get started.',
                 ),
                 const SizedBox(height: 28),
                 TextFormField(
@@ -129,6 +133,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     prefixIcon: Icon(Icons.badge_outlined),
                   ),
                   validator: Validators.name,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _displayNameController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Display name',
+                    hintText: 'How you appear on leaderboards',
+                    prefixIcon: Icon(Icons.alternate_email_rounded),
+                  ),
+                  validator: (v) =>
+                      Validators.required(v, fieldName: 'Display name'),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -154,6 +170,27 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     prefixText: '+91 ',
                   ),
                   validator: (v) => Validators.phone(v, maxLength: 10),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _cityController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'City',
+                    prefixIcon: Icon(Icons.location_city_outlined),
+                  ),
+                  validator: (v) => Validators.required(v, fieldName: 'City'),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _countryController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Country',
+                    prefixIcon: Icon(Icons.public_outlined),
+                  ),
+                  validator: (v) =>
+                      Validators.required(v, fieldName: 'Country'),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
