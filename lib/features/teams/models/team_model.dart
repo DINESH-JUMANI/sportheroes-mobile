@@ -149,8 +149,9 @@ class TeamModel {
   }
 
   int get memberCount {
-    final activeCount = members.where((m) => m.isActive).length;
-    if (activeCount > 0) return activeCount;
+    if (members.isNotEmpty) {
+      return members.where((m) => m.isActive).length;
+    }
     return reportedMemberCount ?? 0;
   }
 

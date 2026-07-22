@@ -51,9 +51,40 @@ class TeamsNotifier extends Notifier<TeamsState> {
     state = state.copyWith(listState: const ApiLoading());
     try {
       final result = await _service.listTeams();
-      state = state.copyWith(listState: ApiSuccess(result.teams));
+      // List endpoint does not include members — enrich counts from team detail.
+      final enriched = await Future.wait(
+        result.teams.map(_enrichTeamMemberCount),
+      );
+      state = state.copyWith(listState: ApiSuccess(enriched));
     } catch (e) {
       state = state.copyWith(listState: ApiError(ApiHelpers.cleanError(e)));
+    }
+  }
+
+  Future<TeamModel> _enrichTeamMemberCount(TeamModel team) async {
+    if (team.members.isNotEmpty || (team.reportedMemberCount ?? 0) > 0) {
+      return team;
+    }
+    try {
+      final detail = await _service.getTeam(team.id);
+      final members = detail.members;
+      final count = members.where((m) => m.isActive).length;
+      return team.copyWith(
+        members: members,
+        reportedMemberCount: count,
+        captainId: detail.captainId ?? team.captainId,
+        viceCaptainId: detail.viceCaptainId ?? team.viceCaptainId,
+      );
+    } catch (_) {
+      try {
+        final members = await _service.listMembers(team.id);
+        return team.copyWith(
+          members: members,
+          reportedMemberCount: members.where((m) => m.isActive).length,
+        );
+      } catch (_) {
+        return team;
+      }
     }
   }
 

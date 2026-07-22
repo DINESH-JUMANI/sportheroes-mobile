@@ -7,7 +7,6 @@ class TeamCard extends StatelessWidget {
     super.key,
     required this.teamId,
     required this.name,
-    required this.captain,
     required this.members,
     this.shortName,
     this.logoUrl,
@@ -18,7 +17,6 @@ class TeamCard extends StatelessWidget {
   final String teamId;
   final String name;
   final String? shortName;
-  final String captain;
   final int members;
   final String? logoUrl;
   final bool hasLogo;
@@ -89,20 +87,11 @@ class TeamCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      captain != '—'
-                          ? 'Captain · $captain'
-                          : 'No captain assigned',
+                      '$members member${members == 1 ? '' : 's'}',
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$members member${members == 1 ? '' : 's'}',
-                      style: const TextStyle(
-                        color: AppColors.textTertiary,
-                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],

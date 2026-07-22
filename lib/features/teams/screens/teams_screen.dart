@@ -120,7 +120,6 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen> {
                     teamId: team.id,
                     name: team.name,
                     shortName: team.shortName,
-                    captain: team.captainName,
                     members: team.memberCount,
                     logoUrl: team.logoUrl,
                     hasLogo: team.hasLogo ||
