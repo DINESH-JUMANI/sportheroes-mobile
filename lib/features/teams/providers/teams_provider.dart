@@ -61,10 +61,32 @@ class TeamsNotifier extends Notifier<TeamsState> {
     state = state.copyWith(detailState: const ApiLoading());
     try {
       final team = await _service.getTeam(id);
-      state = state.copyWith(detailState: ApiSuccess(team));
+      var members = team.members;
+      if (members.isEmpty) {
+        try {
+          members = await _service.listMembers(id);
+        } catch (_) {
+          // Team detail can still render without the members list.
+        }
+      }
+      final teamWithMembers = team.copyWith(
+        members: members,
+        reportedMemberCount: members.where((m) => m.isActive).length,
+      );
+      state = state.copyWith(detailState: ApiSuccess(teamWithMembers));
+      _syncTeamInList(teamWithMembers);
     } catch (e) {
       state = state.copyWith(detailState: ApiError(ApiHelpers.cleanError(e)));
     }
+  }
+
+  void _syncTeamInList(TeamModel team) {
+    final teams = state.teams;
+    if (teams.isEmpty) return;
+    final index = teams.indexWhere((t) => t.id == team.id);
+    if (index < 0) return;
+    final updated = List<TeamModel>.from(teams)..[index] = team;
+    state = state.copyWith(listState: ApiSuccess(updated));
   }
 
   Future<TeamModel?> createTeam(

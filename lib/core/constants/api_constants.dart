@@ -19,6 +19,7 @@ class ApiConstants {
 
   // ── Search ──────────────────────────────────────────────────────────────
   static const String search = '/v1/search';
+  static const String searchUsers = '/v1/search/users';
 
   // ── Sports ──────────────────────────────────────────────────────────────
   static const String sports = '/v1/sports';

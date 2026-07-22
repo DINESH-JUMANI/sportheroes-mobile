@@ -4,11 +4,7 @@ import 'package:sportheroes_mobile/core/constants/app_colors.dart';
 
 /// Rotating SportHeroes logo spinner for inline / page loading states.
 class AppLogoLoader extends StatefulWidget {
-  const AppLogoLoader({
-    super.key,
-    this.size = 56,
-    this.message,
-  });
+  const AppLogoLoader({super.key, this.size = 100, this.message});
 
   final double size;
   final String? message;
@@ -48,6 +44,7 @@ class _AppLogoLoaderState extends State<AppLogoLoader>
             width: widget.size,
             height: widget.size,
             fit: BoxFit.contain,
+            color: AppColors.primary,
           ),
         ),
         if (widget.message != null) ...[

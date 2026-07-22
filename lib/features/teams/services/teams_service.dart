@@ -107,9 +107,15 @@ class TeamsService {
   Future<List<TeamMember>> listMembers(String teamId) async {
     try {
       final response = await _dio.get(ApiConstants.teamMembers(teamId));
-      return ApiHelpers.extractList(response.data, key: 'members')
-          .map(TeamMember.fromJson)
-          .toList();
+      var list = ApiHelpers.extractList(response.data, key: 'members');
+      if (list.isEmpty) {
+        final data = ApiHelpers.extractData(response.data);
+        final raw = data['members'] ?? data['teamMembers'];
+        if (raw is List) {
+          list = raw.map((e) => ApiHelpers.asMap(e)).toList();
+        }
+      }
+      return list.map(TeamMember.fromJson).toList();
     } on DioException catch (e) {
       throw Exception(ApiHelpers.extractError(e));
     }

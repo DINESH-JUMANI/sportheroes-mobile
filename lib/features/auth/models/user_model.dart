@@ -141,6 +141,7 @@ class UserSummary {
     this.fullName,
     this.displayName,
     this.phoneNumber,
+    this.email,
     this.profilePictureUrl,
     this.city,
     this.country,
@@ -152,6 +153,7 @@ class UserSummary {
       fullName: json['fullName'] as String?,
       displayName: json['displayName'] as String?,
       phoneNumber: json['phoneNumber'] as String?,
+      email: json['email'] as String?,
       profilePictureUrl: json['profilePictureUrl'] as String?,
       city: json['city'] as String?,
       country: json['country'] as String?,
@@ -162,6 +164,7 @@ class UserSummary {
   final String? fullName;
   final String? displayName;
   final String? phoneNumber;
+  final String? email;
   final String? profilePictureUrl;
   final String? city;
   final String? country;
@@ -173,6 +176,17 @@ class UserSummary {
     if (fullName != null && fullName!.trim().isNotEmpty) {
       return fullName!.trim();
     }
+    if (phoneNumber != null && phoneNumber!.trim().isNotEmpty) {
+      return phoneNumber!.trim();
+    }
     return 'Player';
+  }
+
+  String get subtitle {
+    final parts = <String>[
+      if (phoneNumber != null && phoneNumber!.trim().isNotEmpty) phoneNumber!.trim(),
+      if (city != null && city!.trim().isNotEmpty) city!.trim(),
+    ];
+    return parts.join(' · ');
   }
 }

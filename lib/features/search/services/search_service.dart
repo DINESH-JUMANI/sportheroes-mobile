@@ -3,6 +3,7 @@ import 'package:sportheroes_mobile/core/constants/api_constants.dart';
 import 'package:sportheroes_mobile/core/models/pagination_meta.dart';
 import 'package:sportheroes_mobile/core/network/api_helpers.dart';
 import 'package:sportheroes_mobile/core/network/dio_client.dart';
+import 'package:sportheroes_mobile/features/auth/models/user_model.dart';
 import 'package:sportheroes_mobile/features/search/models/search_result.dart';
 
 class SearchResultPage {
@@ -12,6 +13,16 @@ class SearchResultPage {
   });
 
   final List<SearchResult> results;
+  final PaginationMeta meta;
+}
+
+class UserSearchPage {
+  const UserSearchPage({
+    required this.users,
+    required this.meta,
+  });
+
+  final List<UserSummary> users;
   final PaginationMeta meta;
 }
 
@@ -41,6 +52,37 @@ class SearchService {
       return SearchResultPage(
         results: ApiHelpers.extractList(response.data, key: 'results')
             .map(SearchResult.fromJson)
+            .toList(),
+        meta: PaginationMeta.fromJson(
+          data['meta'] is Map
+              ? Map<String, dynamic>.from(data['meta'] as Map)
+              : null,
+        ),
+      );
+    } on DioException catch (e) {
+      throw Exception(ApiHelpers.extractError(e));
+    }
+  }
+
+  /// Typeahead for match/team participant pickers.
+  Future<UserSearchPage> searchUsers({
+    required String query,
+    int page = 1,
+    int limit = 15,
+  }) async {
+    try {
+      final response = await _dio.get(
+        ApiConstants.searchUsers,
+        queryParameters: {
+          'q': query,
+          'page': page,
+          'limit': limit,
+        },
+      );
+      final data = ApiHelpers.extractData(response.data);
+      return UserSearchPage(
+        users: ApiHelpers.extractList(response.data, key: 'users')
+            .map(UserSummary.fromJson)
             .toList(),
         meta: PaginationMeta.fromJson(
           data['meta'] is Map

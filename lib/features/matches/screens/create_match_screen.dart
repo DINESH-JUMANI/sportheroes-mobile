@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sportheroes_mobile/core/constants/app_colors.dart';
 import 'package:sportheroes_mobile/core/widgets/app_loading_overlay.dart';
 import 'package:sportheroes_mobile/core/widgets/app_logo_loader.dart';
 import 'package:sportheroes_mobile/features/matches/models/match_model.dart';
 import 'package:sportheroes_mobile/features/matches/providers/matches_provider.dart';
+import 'package:sportheroes_mobile/features/matches/widgets/player_picker_field.dart';
 import 'package:sportheroes_mobile/features/sports/models/sport_model.dart';
 import 'package:sportheroes_mobile/features/sports/providers/sports_provider.dart';
 import 'package:sportheroes_mobile/features/teams/providers/teams_provider.dart';
@@ -13,7 +13,6 @@ import 'package:sportheroes_mobile/features/venues/models/venue_model.dart';
 import 'package:sportheroes_mobile/features/venues/widgets/venue_picker_sheet.dart';
 import 'package:sportheroes_mobile/routes/app_routes.dart';
 import 'package:sportheroes_mobile/utils/app_snackbar.dart';
-import 'package:sportheroes_mobile/utils/validators.dart';
 
 class CreateMatchScreen extends ConsumerStatefulWidget {
   const CreateMatchScreen({super.key});
@@ -25,15 +24,10 @@ class CreateMatchScreen extends ConsumerStatefulWidget {
 class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Singles / doubles — all players chosen explicitly (organizer not auto-added)
-  final _sideA1Phone = TextEditingController();
-  final _sideA1Name = TextEditingController();
-  final _sideA2Phone = TextEditingController();
-  final _sideA2Name = TextEditingController();
-  final _sideB1Phone = TextEditingController();
-  final _sideB1Name = TextEditingController();
-  final _sideB2Phone = TextEditingController();
-  final _sideB2Name = TextEditingController();
+  PickedPlayer? _sideA1;
+  PickedPlayer? _sideA2;
+  PickedPlayer? _sideB1;
+  PickedPlayer? _sideB2;
 
   SportModel? _selectedSport;
   String? _matchType;
@@ -51,24 +45,6 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _sideA1Phone.dispose();
-    _sideA1Name.dispose();
-    _sideA2Phone.dispose();
-    _sideA2Name.dispose();
-    _sideB1Phone.dispose();
-    _sideB1Name.dispose();
-    _sideB2Phone.dispose();
-    _sideB2Name.dispose();
-    super.dispose();
-  }
-
-  String _e164(String local) {
-    final digits = local.replaceAll(RegExp(r'\D'), '');
-    return '+91$digits';
-  }
-
   String _matchTypeLabel(String type) => switch (type) {
         'singles' => 'Singles',
         'doubles' => 'Doubles',
@@ -76,15 +52,11 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
         _ => type,
       };
 
-  CreateMatchParticipant _player({
-    required String side,
-    required TextEditingController phone,
-    required TextEditingController name,
-  }) {
+  CreateMatchParticipant _fromPicked(String side, PickedPlayer player) {
     return CreateMatchParticipant(
       side: side,
-      phoneNumber: _e164(phone.text.trim()),
-      fullName: name.text.trim().isEmpty ? null : name.text.trim(),
+      phoneNumber: player.phoneNumber,
+      fullName: player.fullName,
     );
   }
 
@@ -95,10 +67,6 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
       showDragHandle: true,
       builder: (_) => VenuePickerSheet(selectedId: _selectedVenue?.id),
     );
-    // null from sheet can mean "No venue" or dismiss — use a sentinel?
-    // VenuePickerSheet pops null for "No venue". Dismiss also returns null.
-    // We can't distinguish — clearing on dismiss is ok enough, or we only set
-    // when non-null and have clear button.
     if (!mounted) return;
     if (picked != null) {
       setState(() => _selectedVenue = picked);
@@ -132,16 +100,27 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
         CreateMatchParticipant(side: 'B', teamId: _teamBId),
       ];
     } else if (_matchType == 'doubles') {
+      if (_sideA1 == null ||
+          _sideA2 == null ||
+          _sideB1 == null ||
+          _sideB2 == null) {
+        AppSnackbar.error(context, 'Select all four players');
+        return;
+      }
       participants = [
-        _player(side: 'A', phone: _sideA1Phone, name: _sideA1Name),
-        _player(side: 'A', phone: _sideA2Phone, name: _sideA2Name),
-        _player(side: 'B', phone: _sideB1Phone, name: _sideB1Name),
-        _player(side: 'B', phone: _sideB2Phone, name: _sideB2Name),
+        _fromPicked('A', _sideA1!),
+        _fromPicked('A', _sideA2!),
+        _fromPicked('B', _sideB1!),
+        _fromPicked('B', _sideB2!),
       ];
     } else {
+      if (_sideA1 == null || _sideB1 == null) {
+        AppSnackbar.error(context, 'Select both players');
+        return;
+      }
       participants = [
-        _player(side: 'A', phone: _sideA1Phone, name: _sideA1Name),
-        _player(side: 'B', phone: _sideB1Phone, name: _sideB1Name),
+        _fromPicked('A', _sideA1!),
+        _fromPicked('B', _sideB1!),
       ];
     }
 
@@ -173,43 +152,6 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
       final err = ref.read(matchesProvider).actionState.errorOrNull;
       if (err != null) AppSnackbar.error(context, err);
     }
-  }
-
-  Widget _phoneField({
-    required TextEditingController phone,
-    required TextEditingController name,
-    required String phoneLabel,
-  }) {
-    return Column(
-      children: [
-        TextFormField(
-          controller: phone,
-          keyboardType: TextInputType.phone,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(10),
-          ],
-          decoration: InputDecoration(
-            labelText: phoneLabel,
-            hintText: '10-digit mobile',
-            prefixText: '+91 ',
-            prefixIcon: const Icon(Icons.phone_outlined),
-          ),
-          validator: (v) => Validators.phone(v, maxLength: 10),
-        ),
-        const SizedBox(height: 10),
-        TextFormField(
-          controller: name,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Full name (if new)',
-            hintText: 'Required only for new players',
-            prefixIcon: Icon(Icons.person_outline_rounded),
-          ),
-        ),
-        const SizedBox(height: 14),
-      ],
-    );
   }
 
   @override
@@ -255,6 +197,10 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
                   _matchType = null;
                   _teamAId = null;
                   _teamBId = null;
+                  _sideA1 = null;
+                  _sideA2 = null;
+                  _sideB1 = null;
+                  _sideB2 = null;
                 });
               },
               validator: (v) => v == null ? 'Sport is required' : null,
@@ -281,7 +227,13 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
                       ),
                     )
                     .toList(),
-                onChanged: (v) => setState(() => _matchType = v),
+                onChanged: (v) => setState(() {
+                  _matchType = v;
+                  _sideA1 = null;
+                  _sideA2 = null;
+                  _sideB1 = null;
+                  _sideB2 = null;
+                }),
                 validator: (v) => v == null ? 'Match type is required' : null,
               ),
             ],
@@ -312,7 +264,8 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
                 borderRadius: BorderRadius.circular(12),
                 side: const BorderSide(color: AppColors.grey200),
               ),
-              leading: const Icon(Icons.place_rounded, color: AppColors.primary),
+              leading:
+                  const Icon(Icons.place_rounded, color: AppColors.primary),
               title: Text(
                 _selectedVenue?.name ?? 'Venue (optional)',
                 style: TextStyle(
@@ -347,7 +300,8 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
                 ),
                 items: teams
                     .map(
-                      (t) => DropdownMenuItem(value: t.id, child: Text(t.name)),
+                      (t) =>
+                          DropdownMenuItem(value: t.id, child: Text(t.name)),
                     )
                     .toList(),
                 onChanged: (v) => setState(() => _teamAId = v),
@@ -362,7 +316,8 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
                 ),
                 items: teams
                     .map(
-                      (t) => DropdownMenuItem(value: t.id, child: Text(t.name)),
+                      (t) =>
+                          DropdownMenuItem(value: t.id, child: Text(t.name)),
                     )
                     .toList(),
                 onChanged: (v) => setState(() => _teamBId = v),
@@ -378,7 +333,7 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'Choose every player by phone. You are the organizer only — you are not added as a player unless you enter your own number.',
+                  'Search for players by name, phone or email. If they are not found, use Add new player.',
                   style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
@@ -393,18 +348,18 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
                     ),
               ),
               const SizedBox(height: 8),
-              _phoneField(
-                phone: _sideA1Phone,
-                name: _sideA1Name,
-                phoneLabel: _matchType == 'doubles'
-                    ? 'Player 1 phone (Side A)'
-                    : 'Player A phone',
+              PlayerPickerField(
+                key: const ValueKey('side-a1'),
+                label: _matchType == 'doubles'
+                    ? 'Player 1 (Side A)'
+                    : 'Player A',
+                onChanged: (p) => setState(() => _sideA1 = p),
               ),
               if (_matchType == 'doubles')
-                _phoneField(
-                  phone: _sideA2Phone,
-                  name: _sideA2Name,
-                  phoneLabel: 'Player 2 phone (Side A)',
+                PlayerPickerField(
+                  key: const ValueKey('side-a2'),
+                  label: 'Player 2 (Side A)',
+                  onChanged: (p) => setState(() => _sideA2 = p),
                 ),
               Text(
                 'Side B',
@@ -413,18 +368,18 @@ class _CreateMatchScreenState extends ConsumerState<CreateMatchScreen> {
                     ),
               ),
               const SizedBox(height: 8),
-              _phoneField(
-                phone: _sideB1Phone,
-                name: _sideB1Name,
-                phoneLabel: _matchType == 'doubles'
-                    ? 'Player 1 phone (Side B)'
-                    : 'Player B phone',
+              PlayerPickerField(
+                key: const ValueKey('side-b1'),
+                label: _matchType == 'doubles'
+                    ? 'Player 1 (Side B)'
+                    : 'Player B',
+                onChanged: (p) => setState(() => _sideB1 = p),
               ),
               if (_matchType == 'doubles')
-                _phoneField(
-                  phone: _sideB2Phone,
-                  name: _sideB2Name,
-                  phoneLabel: 'Player 2 phone (Side B)',
+                PlayerPickerField(
+                  key: const ValueKey('side-b2'),
+                  label: 'Player 2 (Side B)',
+                  onChanged: (p) => setState(() => _sideB2 = p),
                 ),
             ],
             const SizedBox(height: 12),
